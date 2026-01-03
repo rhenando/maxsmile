@@ -1,184 +1,213 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { Phone, CalendarCheck, Sparkles, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { MapPin, Phone, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { BRANCHES, BranchSlug } from "@/lib/branches";
+
+const HERO_VIDEO_MP4 = "/videos/clinic-hero.mp4";
+const HERO_POSTER = "/images/clinic-hero-poster.jpg";
+
+const GOLD = "#DAC583";
+const GOLD_DARK = "#B19552";
+const GOLD_DARK_HOVER = "#A7894B";
+
+const PHONE = "+639000000000";
 
 export default function HeroBooking() {
-  const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    setDone(false);
-    await new Promise((r) => setTimeout(r, 700));
-    setLoading(false);
-    setDone(true);
+  // ✅ derive branch list from BRANCHES keys
+  // ✅ href must match: app/book/[branchSlug]/page.tsx
+  const branchList = useMemo(() => {
+    return (
+      Object.entries(BRANCHES) as [BranchSlug, (typeof BRANCHES)[BranchSlug]][]
+    ).map(([slug, b]) => ({
+      slug,
+      name: b.name,
+      subtitle: b.subtitle,
+      href: `/book/${slug}`, // ✅ correct route
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    if (open) window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
+  function goToBranch(href: string) {
+    setOpen(false);
+    router.push(href);
   }
 
   return (
-    <section className='relative py-10 sm:py-14'>
-      <div className='mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-4 sm:px-6 lg:grid-cols-12 lg:gap-10 lg:px-8'>
-        {/* Left */}
-        <div className='lg:col-span-7'>
-          <div className='inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-1 text-xs text-black/70 shadow-sm'>
-            <span className='h-1.5 w-1.5 rounded-full bg-[#AF9046]' />
-            Premium care • Booking-first
-          </div>
+    <section className='relative w-full overflow-hidden h-[calc(100svh-4rem)] sm:h-[calc(100svh-5rem)]'>
+      <video
+        className='absolute inset-0 h-full w-full object-cover'
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload='metadata'
+        poster={HERO_POSTER}
+      >
+        <source src={HERO_VIDEO_MP4} type='video/mp4' />
+      </video>
 
-          <h1 className='mt-5 font-serif text-3xl leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl'>
-            A Brighter Smile, <span className='text-[#AF9046]'>Crafted</span>{" "}
-            with Care
+      <div className='absolute inset-0 bg-linear-to-b from-black/65 via-black/35 to-black/70' />
+
+      <div className='relative z-10 flex h-full items-center justify-center px-4 sm:px-6 text-center'>
+        <div className='w-full max-w-4xl'>
+          <h1 className='font-serif text-3xl font-semibold leading-tight tracking-tight text-white sm:text-5xl md:text-6xl'>
+            Achieve Maximum Smiles at Minimal Cost
           </h1>
 
-          <p className='mt-4 max-w-xl text-sm leading-relaxed text-black/70 sm:text-base md:text-lg'>
-            Book in minutes. Our team will confirm your schedule and guide you
-            every step.
+          <div
+            className='mx-auto mt-4 sm:mt-5 h-1 w-20 sm:w-24 rounded-full opacity-95'
+            style={{ backgroundColor: GOLD }}
+          />
+
+          <p className='mx-auto mt-5 sm:mt-6 max-w-3xl text-[11px] sm:text-sm font-medium uppercase tracking-[0.26em] sm:tracking-[0.32em] text-white/90'>
+            Premium dental care with transparent pricing you can trust.
           </p>
 
-          <div className='mt-5 flex flex-wrap items-center gap-2 text-xs text-black/70 sm:gap-3 sm:text-sm'>
-            <span className='rounded-full border border-black/10 bg-white px-3 py-1.5 shadow-sm'>
-              ★ 4.9 rating
-            </span>
-            <span className='rounded-full border border-black/10 bg-white px-3 py-1.5 shadow-sm'>
-              120+ reviews
-            </span>
-            <span className='rounded-full border border-black/10 bg-white px-3 py-1.5 shadow-sm'>
-              Open Today
-            </span>
-          </div>
+          <div className='mt-7 sm:mt-8 flex w-full flex-col items-center justify-center gap-3 sm:flex-row'>
+            <button
+              type='button'
+              onClick={() => setOpen(true)}
+              className='w-full sm:w-auto rounded-xl px-6 sm:px-8 py-3 text-[11px] font-medium uppercase tracking-[0.32em] sm:tracking-[0.35em] text-white shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60'
+              style={{ backgroundColor: GOLD_DARK }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.backgroundColor = GOLD_DARK_HOVER)
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.backgroundColor = GOLD_DARK)
+              }
+            >
+              Book an Appointment
+            </button>
 
-          <div className='mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3'>
-            {[
-              {
-                t: "Fast booking",
-                d: "Simple form, quick confirmation.",
-                Icon: CalendarCheck,
-              },
-              {
-                t: "Premium feel",
-                d: "Clean, calm clinic experience.",
-                Icon: Sparkles,
-              },
-              {
-                t: "Clear guidance",
-                d: "Friendly support and options.",
-                Icon: ShieldCheck,
-              },
-            ].map((x) => (
-              <div
-                key={x.t}
-                className='rounded-2xl border border-black/10 bg-white p-4 shadow-sm'
-              >
-                <div className='flex h-9 w-9 items-center justify-center rounded-xl border border-black/10 bg-[#FAF7F1]'>
-                  <x.Icon className='h-4 w-4 text-[#AF9046]' />
-                </div>
-                <p className='mt-3 font-medium leading-snug'>{x.t}</p>
-                <p className='mt-1 text-sm leading-relaxed text-black/60'>
-                  {x.d}
-                </p>
-              </div>
-            ))}
+            <a
+              href={`tel:${PHONE}`}
+              className='inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-6 py-3 text-[11px] font-medium uppercase tracking-[0.28em] text-white/95 backdrop-blur-sm transition hover:bg-white/15'
+            >
+              <Phone className='h-4 w-4' />
+              Call
+            </a>
           </div>
         </div>
+      </div>
 
-        {/* Right - Booking Card */}
-        <div className='lg:col-span-5'>
-          <div id='book' className='lg:sticky lg:top-24'>
-            <Card className='rounded-3xl border-black/10 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.10)]'>
-              <CardHeader className='pb-2'>
-                <CardTitle className='text-lg tracking-tight sm:text-xl'>
-                  Book an Appointment
-                </CardTitle>
-                <div className='mt-2 h-px w-20 bg-[#AF9046]/70' />
+      {open && (
+        <div className='fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4'>
+          <button
+            type='button'
+            aria-label='Close'
+            onClick={() => setOpen(false)}
+            className='absolute inset-0 bg-black/60'
+          />
+
+          <div className='relative w-full max-w-xl'>
+            <Card className='rounded-3xl border-black/10 bg-white shadow-[0_18px_70px_rgba(0,0,0,0.35)]'>
+              <CardHeader className='pb-3'>
+                <div className='flex items-start justify-between gap-3'>
+                  <div className='min-w-0'>
+                    <CardTitle className='text-lg tracking-tight sm:text-xl'>
+                      Choose a Branch
+                    </CardTitle>
+                    <div
+                      className='mt-2 h-px w-16 sm:w-20'
+                      style={{ backgroundColor: GOLD }}
+                    />
+                    <p className='mt-3 text-sm text-black/60'>
+                      Select your preferred branch to continue booking.
+                    </p>
+                  </div>
+
+                  <button
+                    type='button'
+                    onClick={() => setOpen(false)}
+                    className='inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white text-black/70 transition hover:bg-black/5'
+                    aria-label='Close modal'
+                  >
+                    <X className='h-5 w-5' />
+                  </button>
+                </div>
               </CardHeader>
 
-              <CardContent>
-                <form onSubmit={onSubmit} className='space-y-4'>
-                  <div className='space-y-2'>
-                    <Label htmlFor='name'>Full Name</Label>
-                    <Input id='name' placeholder='Juan Dela Cruz' required />
-                  </div>
-
-                  <div className='space-y-2'>
-                    <Label htmlFor='mobile'>Mobile Number</Label>
-                    <Input
-                      id='mobile'
-                      placeholder='09xx xxx xxxx'
-                      inputMode='tel'
-                      required
-                    />
-                  </div>
-
-                  <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
-                    <div className='space-y-2'>
-                      <Label htmlFor='date'>Preferred Date</Label>
-                      <Input id='date' type='date' />
-                    </div>
-                    <div className='space-y-2'>
-                      <Label htmlFor='time'>Preferred Time</Label>
-                      <Input id='time' type='time' />
-                    </div>
-                  </div>
-
-                  <div className='space-y-2'>
-                    <Label htmlFor='service'>Service</Label>
-                    <select
-                      id='service'
-                      defaultValue='Consultation'
-                      className='h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-[#E0C878]/50'
+              <CardContent className='pb-6 max-h-[70svh] overflow-auto'>
+                <div className='grid gap-3 grid-cols-1 sm:grid-cols-2'>
+                  {branchList.map((b) => (
+                    <button
+                      key={b.slug}
+                      type='button'
+                      onClick={() => goToBranch(b.href)}
+                      className='group w-full rounded-2xl border border-black/10 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2'
                     >
-                      <option>Consultation</option>
-                      <option>Cleaning</option>
-                      <option>Fillings</option>
-                      <option>Whitening</option>
-                      <option>Braces</option>
-                      <option>Root Canal</option>
-                    </select>
-                  </div>
+                      <div className='flex items-start gap-3'>
+                        <div
+                          className='mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-black/10'
+                          style={{ backgroundColor: "rgba(218,197,131,0.16)" }}
+                        >
+                          <MapPin
+                            className='h-5 w-5'
+                            style={{ color: GOLD_DARK }}
+                          />
+                        </div>
 
-                  <Button
-                    type='submit'
-                    className='h-12 w-full rounded-2xl bg-[#AF9046] text-white hover:bg-[#9C813E]'
-                    disabled={loading}
+                        <div className='min-w-0'>
+                          <p className='font-medium leading-snug text-black'>
+                            {b.name}
+                          </p>
+                          <p className='mt-1 text-sm text-black/60'>
+                            {b.subtitle}
+                          </p>
+
+                          <span
+                            className='mt-3 inline-flex items-center text-xs font-semibold uppercase tracking-[0.18em] transition group-hover:translate-x-0.5'
+                            style={{ color: GOLD_DARK }}
+                          >
+                            Continue →
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className='mt-5 text-xs leading-relaxed text-black/60'>
+                  First-come, first-served basis.
+                </div>
+
+                <div className='mt-4'>
+                  <a
+                    href={`tel:${PHONE}`}
+                    className='inline-flex items-center gap-2 underline-offset-4 hover:underline italic'
+                    style={{ color: GOLD_DARK }}
                   >
-                    {loading ? "Submitting..." : "Book Appointment"}
-                  </Button>
-
-                  <p className='text-xs leading-relaxed text-black/60'>
-                    We’ll confirm your schedule within the day.
-                  </p>
-
-                  {done && (
-                    <div className='rounded-2xl border border-[#E0C878]/40 bg-[#FAF7F1] p-3 text-sm leading-relaxed text-black/70'>
-                      ✅ Thanks! We’ll contact you to confirm your appointment.
-                    </div>
-                  )}
-
-                  <div className='pt-2 text-sm'>
-                    <a
-                      href='tel:+639000000000'
-                      className='inline-flex items-center gap-2 text-[#AF9046] underline-offset-4 hover:underline italic'
-                    >
-                      <Phone className='h-4 w-4' />
-                      For urgent concerns! Call us directly
-                    </a>
-                  </div>
-                </form>
+                    <Phone className='h-4 w-4' />
+                    For urgent concerns! Call us directly
+                  </a>
+                </div>
               </CardContent>
             </Card>
           </div>
         </div>
-      </div>
-
-      {/* subtle background accent */}
-      <div className='pointer-events-none absolute inset-0 -z-10'>
-        <div className='absolute left-1/2 -top-24 h-88 w-88 -translate-x-1/2 rounded-full bg-[#E0C878]/20 blur-3xl sm:-top-28 sm:h-112 sm:w-md' />
-      </div>
+      )}
     </section>
   );
 }
