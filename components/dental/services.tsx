@@ -1,21 +1,11 @@
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Stethoscope,
-  Sparkles,
-  Wrench,
-  Smile,
-  AlignHorizontalDistributeCenter,
-  ShieldPlus,
-} from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
 
-const services = [
-  { name: "Consultation", Icon: Stethoscope },
-  { name: "Cleaning", Icon: Sparkles },
-  { name: "Fillings", Icon: Wrench },
-  { name: "Whitening", Icon: Smile },
-  { name: "Braces", Icon: AlignHorizontalDistributeCenter },
-  { name: "Root Canal", Icon: ShieldPlus },
-];
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { SERVICES } from "@/app/services/services-data";
+
+const GOLD_DARK = "#B19552";
 
 export default function Services() {
   return (
@@ -29,51 +19,76 @@ export default function Services() {
             </h2>
           </div>
 
-          <a
-            href='#book'
-            className='hidden text-sm text-[#AF9046] underline-offset-4 hover:underline sm:block'
+          <Link
+            href='/services'
+            className='hidden text-sm text-[#B19552] underline-offset-4 hover:underline sm:block'
           >
-            Book now →
-          </a>
+            View all services →
+          </Link>
         </div>
 
         <div className='mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-          {services.map(({ name, Icon }) => (
+          {SERVICES.slice(0, 6).map((s) => (
             <Card
-              key={name}
-              className='h-full rounded-3xl border-black/10 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md'
+              key={s.slug}
+              className='p-0 overflow-hidden rounded-3xl border-black/10 bg-white shadow-[0_10px_26px_rgba(0,0,0,0.06)] transition hover:-translate-y-0.5 hover:shadow-md'
             >
-              <CardContent className='flex h-full flex-col p-5 sm:p-6'>
-                <div className='flex items-start justify-between gap-3'>
-                  <div className='min-w-0'>
-                    <p className='text-lg font-medium leading-snug'>{name}</p>
-                    <p className='mt-1 text-sm leading-relaxed text-black/60'>
-                      Book a visit and we’ll guide you.
-                    </p>
-                  </div>
+              {/* Image header (same as /services page) */}
+              <div className='group relative m-0 w-full aspect-16/10 overflow-hidden bg-black/5'>
+                <Image
+                  src={s.imageSrc}
+                  alt={s.imageAlt}
+                  fill
+                  sizes='(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw'
+                  className='object-cover transition-transform duration-500 group-hover:scale-[1.03]'
+                  priority={false}
+                />
+                <div className='absolute inset-0 bg-linear-to-t from-black/35 via-black/0 to-black/0' />
+              </div>
 
-                  <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-black/10 bg-[#FAF7F1]'>
-                    <Icon className='h-5 w-5 text-[#AF9046]' />
-                  </div>
+              {/* Content (same padding/typography as /services page) */}
+              <CardContent className='p-5'>
+                <p className='text-base font-semibold text-black'>{s.title}</p>
+                <p className='mt-1 text-sm text-black/65'>{s.desc}</p>
+
+                <ul className='mt-4 space-y-2'>
+                  {s.bullets.map((b) => (
+                    <li
+                      key={b}
+                      className='flex items-start gap-2 text-sm text-black/70'
+                    >
+                      <span
+                        className='mt-1 h-1.5 w-1.5 shrink-0 rounded-full'
+                        style={{ backgroundColor: GOLD_DARK }}
+                      />
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className='mt-5'>
+                  <Button
+                    asChild
+                    variant='outline'
+                    className='h-10 w-full rounded-2xl border-black/10 bg-white'
+                  >
+                    <Link href={`/services/${s.slug}`}>Know more</Link>
+                  </Button>
                 </div>
-
-                <a
-                  href='#book'
-                  className='mt-4 inline-flex text-sm font-medium text-[#AF9046] underline-offset-4 hover:underline'
-                >
-                  Book →
-                </a>
-
-                {/* mobile primary CTA */}
-                <a
-                  href='#book'
-                  className='mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-[#AF9046] px-4 py-3 text-sm font-medium text-white hover:bg-[#9C813E] active:scale-[0.99] sm:hidden'
-                >
-                  Book Appointment
-                </a>
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {/* Mobile "View all" button */}
+        <div className='mt-6 sm:hidden'>
+          <Button
+            asChild
+            variant='outline'
+            className='h-11 w-full rounded-2xl border-black/10 bg-white'
+          >
+            <Link href='/services'>View all services</Link>
+          </Button>
         </div>
       </div>
     </section>

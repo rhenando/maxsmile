@@ -1,4 +1,3 @@
-import SiteHeader from "@/components/dental/site-header";
 import HeroBooking from "@/components/dental/hero-booking";
 import SocialProof from "@/components/dental/social-proof";
 import Services from "@/components/dental/services";
@@ -11,8 +10,6 @@ import MobileStickyBar from "@/components/dental/mobile-sticky-bar";
 export default function DentalLandingPage() {
   return (
     <div className='min-h-screen bg-[#FAF7F1] text-[#111111]'>
-      <SiteHeader />
-
       <main>
         <HeroBooking />
         <SocialProof />
