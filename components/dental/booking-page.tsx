@@ -1,22 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  MapPin,
-  Phone,
-  Clock,
-  ChevronLeft,
-  CheckCircle2,
-  Loader2,
-} from "lucide-react";
+import { MapPin, Phone, Clock, ChevronLeft, CheckCircle2 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 import { BRANCHES, BranchSlug } from "@/lib/branches";
 
 // Brand tones
@@ -36,35 +37,6 @@ const SERVICES = [
 ] as const;
 
 type ServiceValue = (typeof SERVICES)[number]["value"];
-type Slot = { key: string; label: string; disabled: boolean };
-
-// ✅ UI-only slot generator: 9:00 AM to 5:00 PM (last slot = 5:00 PM)
-function makeSlots(seed: string) {
-  const startMin = 9 * 60; // 9:00
-  const endMin = 17 * 60 + 30; // 17:30 (exclusive)
-  const step = 30;
-
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-
-  const slots: Slot[] = [];
-  for (let m = startMin; m < endMin; m += step) {
-    const hour24 = Math.floor(m / 60);
-    const min = m % 60;
-
-    const ampm = hour24 >= 12 ? "PM" : "AM";
-    const hour12 = ((hour24 + 11) % 12) + 1;
-    const label = `${hour12}:${min === 0 ? "00" : min} ${ampm}`;
-    const key = `${hour24.toString().padStart(2, "0")}:${min
-      .toString()
-      .padStart(2, "0")}`;
-
-    const disabled = (h + m) % 100 < 35; // deterministic disabled
-    slots.push({ key, label, disabled });
-  }
-
-  return slots;
-}
 
 function mapsLink(q: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -101,10 +73,6 @@ export default function BookingPageClient({
   const [service, setService] = useState<ServiceValue>("consultation");
   const [date, setDate] = useState<string>(() => todayLocalISO());
 
-  const [slotsLoading, setSlotsLoading] = useState(false);
-  const [slots, setSlots] = useState<Slot[]>([]);
-  const [selectedSlotKey, setSelectedSlotKey] = useState<string>("");
-
   const [fullName, setFullName] = useState("");
   const [mobile, setMobile] = useState("");
 
@@ -112,52 +80,42 @@ export default function BookingPageClient({
   const [confirmed, setConfirmed] = useState(false);
   const [reference, setReference] = useState<string>("");
 
+  // ✅ server/admin will use this for first-come-first-serve sorting
+  const [createdAt, setCreatedAt] = useState<string>("");
+
+  // ✅ dialog after successful confirm
+  const [reservedOpen, setReservedOpen] = useState(false);
+
   useEffect(() => {
     setDate(todayLocalISO());
-  }, [branchSlug]);
-
-  const seed = useMemo(
-    () => `${branchSlug}|${service}|${date}`,
-    [branchSlug, service, date]
-  );
-
-  const selectedSlotLabel = useMemo(() => {
-    return slots.find((s) => s.key === selectedSlotKey)?.label ?? "";
-  }, [slots, selectedSlotKey]);
-
-  useEffect(() => {
-    setSelectedSlotKey("");
     setConfirmed(false);
     setReference("");
-
-    if (!date) {
-      setSlots([]);
-      return;
-    }
-
-    setSlotsLoading(true);
-    const t = setTimeout(() => {
-      setSlots(makeSlots(seed));
-      setSlotsLoading(false);
-    }, 450);
-
-    return () => clearTimeout(t);
-  }, [seed, date]);
+    setCreatedAt("");
+    setFullName("");
+    setMobile("");
+    setService("consultation");
+    setReservedOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchSlug]);
 
   const canConfirm =
     !!branch &&
     !!date &&
-    !!selectedSlotKey &&
     fullName.trim().length >= 2 &&
     mobile.trim().length >= 8 &&
     !submitting;
 
   async function handleConfirm() {
-    if (!canConfirm) return;
+    if (!canConfirm || confirmed) return;
 
     setSubmitting(true);
     setConfirmed(false);
 
+    // ✅ record the exact moment they booked (admin uses this)
+    const nowIso = new Date().toISOString();
+    setCreatedAt(nowIso);
+
+    // simulate processing
     await new Promise((r) => setTimeout(r, 650));
 
     const ref =
@@ -169,6 +127,15 @@ export default function BookingPageClient({
     setReference(ref);
     setConfirmed(true);
     setSubmitting(false);
+
+    // ✅ show success dialog
+    setReservedOpen(true);
+
+    /**
+     * Later (Supabase):
+     * insert { branchSlug, service, date, fullName, mobile, createdAt: nowIso, reference: ref }
+     * Then admin dashboard sorts by createdAt ASC for first-come-first-serve.
+     */
   }
 
   if (!branch) {
@@ -195,7 +162,6 @@ export default function BookingPageClient({
     );
   }
 
-  // ✅ Make sure the left column shows the branch clearly
   const clinicDisplayName = `${LOGO_ALT} - ${branch.name}`;
   const mapQuery = `${clinicDisplayName} ${branch.address}`;
   const displayDate = formatDisplayDate(date);
@@ -241,12 +207,16 @@ export default function BookingPageClient({
               <Card className='rounded-3xl border-black/10 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.08)] lg:h-full flex flex-col'>
                 <CardHeader className='pb-3 shrink-0'>
                   <CardTitle className='text-lg tracking-tight sm:text-xl'>
-                    Select a slot
+                    Book an appointment
                   </CardTitle>
                   <div
                     className='mt-2 h-px w-20'
                     style={{ backgroundColor: GOLD }}
                   />
+                  <p className='mt-2 text-sm text-black/60'>
+                    No time selection needed. We’ll arrange your time based on
+                    availability and confirm via call/text.
+                  </p>
                 </CardHeader>
 
                 <CardContent className='space-y-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto'>
@@ -286,51 +256,6 @@ export default function BookingPageClient({
                     </div>
                   </div>
 
-                  <div className='space-y-2'>
-                    <div className='flex items-center justify-between gap-3'>
-                      <p className='text-sm font-medium text-black'>
-                        Available times
-                      </p>
-                      {slotsLoading && (
-                        <span className='inline-flex items-center gap-2 text-xs text-black/60'>
-                          <Loader2 className='h-3.5 w-3.5 animate-spin' />
-                          Loading
-                        </span>
-                      )}
-                    </div>
-
-                    {/* ✅ More mobile-friendly: more columns + smaller pills */}
-                    <div className='grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5'>
-                      {slots.map((slot) => {
-                        const active = selectedSlotKey === slot.key;
-                        return (
-                          <button
-                            key={slot.key}
-                            type='button'
-                            disabled={slot.disabled}
-                            onClick={() =>
-                              !slot.disabled && setSelectedSlotKey(slot.key)
-                            }
-                            className={[
-                              "h-8 sm:h-9 rounded-xl border px-1.5 sm:px-2 text-[10px] sm:text-[11px] font-medium transition",
-                              slot.disabled
-                                ? "border-black/10 bg-black/5 text-black/30"
-                                : "border-black/10 bg-white text-black/80 hover:bg-[#FAF7F1]",
-                              active ? "border-transparent text-white" : "",
-                            ].join(" ")}
-                            style={
-                              active
-                                ? { backgroundColor: GOLD_DARK }
-                                : undefined
-                            }
-                          >
-                            {slot.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
                   <div className='grid gap-3 sm:gap-4 sm:grid-cols-2'>
                     <div className='space-y-2'>
                       <Label htmlFor='name'>Full Name</Label>
@@ -365,7 +290,7 @@ export default function BookingPageClient({
                         />
                         <div className='min-w-0'>
                           <p className='font-medium text-black'>
-                            Booking confirmed!
+                            Booking request received!
                           </p>
                           <p className='mt-1'>
                             Reference:{" "}
@@ -373,7 +298,14 @@ export default function BookingPageClient({
                           </p>
                           <p className='mt-2 text-black/65'>
                             {branch.name} • {displayDate}
-                            {selectedSlotLabel ? ` • ${selectedSlotLabel}` : ""}
+                          </p>
+                          <p className='mt-2 text-black/65'>
+                            Your booking has been reserved.
+                          </p>
+                          <p className='mt-2 text-black/60'>
+                            Please note: we serve on a first come, first served
+                            basis. If you’re unable to come, your slot may be
+                            released to other patients.
                           </p>
                         </div>
                       </div>
@@ -385,13 +317,18 @@ export default function BookingPageClient({
                     <Button
                       type='button'
                       onClick={handleConfirm}
-                      disabled={!canConfirm}
+                      disabled={!canConfirm || confirmed}
                       className='h-12 w-full rounded-2xl text-white'
                       style={{
-                        backgroundColor: canConfirm ? GOLD_DARK : "#cbbf9a",
+                        backgroundColor:
+                          confirmed || !canConfirm ? "#cbbf9a" : GOLD_DARK,
                       }}
                     >
-                      {submitting ? "Confirming..." : "Confirm Appointment"}
+                      {confirmed
+                        ? "Reserved"
+                        : submitting
+                        ? "Submitting..."
+                        : "Confirm Appointment"}
                     </Button>
                   </div>
                 </CardContent>
@@ -412,7 +349,6 @@ export default function BookingPageClient({
                 </CardHeader>
 
                 <CardContent className='space-y-4 text-sm text-black/70 lg:min-h-0 lg:flex-1 lg:overflow-y-auto'>
-                  {/* ✅ smaller map on mobile so it doesn't blow up the layout */}
                   <div className='overflow-hidden rounded-2xl border border-black/10 bg-white'>
                     <iframe
                       title={`${clinicDisplayName} map`}
@@ -425,7 +361,6 @@ export default function BookingPageClient({
                     />
                   </div>
 
-                  {/* ✅ show clinic + branch */}
                   <p className='text-black leading-snug wrap-break-word'>
                     <span className='font-medium'>{clinicDisplayName}</span>
                     {branch.subtitle &&
@@ -480,12 +415,11 @@ export default function BookingPageClient({
               <p className='truncate text-xs font-semibold text-black'>
                 {branch.name}
                 {displayDate ? ` • ${displayDate}` : ""}
-                {selectedSlotLabel ? ` • ${selectedSlotLabel}` : ""}
               </p>
               <p className='truncate text-[11px] text-black/60'>
-                {selectedSlotKey
+                {canConfirm
                   ? "Ready to confirm"
-                  : "Select a time to continue"}
+                  : "Enter your details to continue"}
               </p>
             </div>
 
@@ -496,11 +430,44 @@ export default function BookingPageClient({
               className='ml-auto h-11 shrink-0 rounded-xl px-4 text-xs font-semibold text-white'
               style={{ backgroundColor: canConfirm ? GOLD_DARK : "#cbbf9a" }}
             >
-              {submitting ? "Confirming..." : "Confirm"}
+              {submitting ? "Submitting..." : "Confirm"}
             </button>
           </div>
         </div>
       )}
+
+      {/* ✅ Success dialog */}
+      <Dialog open={reservedOpen} onOpenChange={setReservedOpen}>
+        <DialogContent className='rounded-3xl border-black/10'>
+          <DialogHeader>
+            <DialogTitle className='tracking-tight'>Slot Reserved</DialogTitle>
+            <DialogDescription className='text-black/70'>
+              Your slot has been reserved. Please visit our clinic. Thank you.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className='mt-2 rounded-2xl border border-black/10 bg-[#FAF7F1] p-4 text-sm text-black/70'>
+            <p className='font-semibold text-black'>{branch.name}</p>
+            <p className='mt-1'>{displayDate}</p>
+            {reference ? (
+              <p className='mt-2'>
+                Reference: <span className='font-semibold'>{reference}</span>
+              </p>
+            ) : null}
+          </div>
+
+          <div className='mt-4 flex gap-2'>
+            <Button
+              type='button'
+              onClick={() => setReservedOpen(false)}
+              className='w-full rounded-2xl text-white'
+              style={{ backgroundColor: GOLD_DARK }}
+            >
+              Okay
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
