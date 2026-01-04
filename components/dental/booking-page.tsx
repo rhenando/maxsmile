@@ -104,6 +104,17 @@ export default function BookingPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchSlug]);
 
+  // ✅ Redirect to /services after successful submit (when dialog opens)
+  useEffect(() => {
+    if (!reservedOpen) return;
+
+    const t = setTimeout(() => {
+      router.push("/services");
+    }, 900);
+
+    return () => clearTimeout(t);
+  }, [reservedOpen, router]);
+
   const canConfirm =
     !!branch &&
     !!date &&
@@ -115,7 +126,6 @@ export default function BookingPageClient({
   async function handleConfirm() {
     if (!branch || !date || submitting || confirmed) return;
 
-    // ✅ must agree before confirm
     if (!privacyAgreed) {
       setPrivacyError(true);
       return;
@@ -142,7 +152,7 @@ export default function BookingPageClient({
     setConfirmed(true);
     setSubmitting(false);
 
-    // ✅ show success dialog
+    // ✅ show success dialog (then redirect effect runs)
     setReservedOpen(true);
 
     /**
