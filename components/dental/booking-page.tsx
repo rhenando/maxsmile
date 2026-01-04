@@ -1,23 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Phone, Clock, ChevronLeft, CheckCircle2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { MapPin, Phone, Clock, CheckCircle2 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-
 import { BRANCHES, BranchSlug } from "@/lib/branches";
 
 // Brand tones
@@ -83,8 +75,9 @@ export default function BookingPageClient({
   // ✅ server/admin will use this for first-come-first-serve sorting
   const [createdAt, setCreatedAt] = useState<string>("");
 
-  // ✅ dialog after successful confirm
-  const [reservedOpen, setReservedOpen] = useState(false);
+  // ✅ Privacy consent
+  const [privacyAgreed, setPrivacyAgreed] = useState(false);
+  const [privacyError, setPrivacyError] = useState(false);
 
   useEffect(() => {
     setDate(todayLocalISO());
@@ -94,7 +87,8 @@ export default function BookingPageClient({
     setFullName("");
     setMobile("");
     setService("consultation");
-    setReservedOpen(false);
+    setPrivacyAgreed(false);
+    setPrivacyError(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchSlug]);
 
@@ -103,19 +97,25 @@ export default function BookingPageClient({
     !!date &&
     fullName.trim().length >= 2 &&
     mobile.trim().length >= 8 &&
-    !submitting;
+    privacyAgreed &&
+    !submitting &&
+    !confirmed;
 
   async function handleConfirm() {
-    if (!canConfirm || confirmed) return;
+    if (!branch || !date || submitting || confirmed) return;
 
+    if (!privacyAgreed) {
+      setPrivacyError(true);
+      return;
+    }
+
+    setPrivacyError(false);
     setSubmitting(true);
     setConfirmed(false);
 
-    // ✅ record the exact moment they booked (admin uses this)
     const nowIso = new Date().toISOString();
     setCreatedAt(nowIso);
 
-    // simulate processing
     await new Promise((r) => setTimeout(r, 650));
 
     const ref =
@@ -127,15 +127,6 @@ export default function BookingPageClient({
     setReference(ref);
     setConfirmed(true);
     setSubmitting(false);
-
-    // ✅ show success dialog
-    setReservedOpen(true);
-
-    /**
-     * Later (Supabase):
-     * insert { branchSlug, service, date, fullName, mobile, createdAt: nowIso, reference: ref }
-     * Then admin dashboard sorts by createdAt ASC for first-come-first-serve.
-     */
   }
 
   if (!branch) {
@@ -168,41 +159,11 @@ export default function BookingPageClient({
 
   return (
     <main className='min-h-svh bg-[#FAF7F1] flex flex-col overflow-x-hidden'>
-      {/* Top strip */}
-      <div className='shrink-0 border-b border-black/10 bg-white/60 backdrop-blur'>
-        <div className='mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:px-8'>
-          <button
-            type='button'
-            onClick={() => router.back()}
-            className='inline-flex items-center gap-2 text-sm text-black/70 hover:text-black'
-          >
-            <ChevronLeft className='h-4 w-4' />
-            <span className='hidden sm:inline'>Back</span>
-          </button>
-
-          <Link href='/' className='inline-flex items-center justify-center'>
-            <div className='relative h-9 w-32 sm:h-12 sm:w-56'>
-              <Image
-                src={LOGO_SRC}
-                alt={LOGO_ALT}
-                fill
-                className='object-contain'
-                priority
-              />
-            </div>
-          </Link>
-
-          <p className='hidden sm:block max-w-45 truncate text-xs uppercase tracking-[0.22em] text-black/50'>
-            {branch.name}
-          </p>
-        </div>
-      </div>
-
       {/* content */}
       <div className='flex-1 overflow-y-auto lg:overflow-hidden pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-0'>
         <section className='mx-auto h-full w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8'>
           <div className='grid min-h-0 gap-4 lg:grid-cols-12 lg:gap-6'>
-            {/* Booking UI (show first on mobile) */}
+            {/* Booking UI */}
             <div className='order-1 lg:order-2 lg:col-span-7 min-h-0'>
               <Card className='rounded-3xl border-black/10 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.08)] lg:h-full flex flex-col'>
                 <CardHeader className='pb-3 shrink-0'>
@@ -230,6 +191,7 @@ export default function BookingPageClient({
                           setService(e.target.value as ServiceValue)
                         }
                         className='h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[#DAC583]/40'
+                        disabled={confirmed}
                       >
                         {SERVICES.map((s) => (
                           <option key={s.value} value={s.value}>
@@ -248,6 +210,7 @@ export default function BookingPageClient({
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
                         className='h-11 rounded-xl'
+                        disabled={confirmed}
                       />
                       <p className='text-[11px] text-black/55'>
                         Selected:{" "}
@@ -265,6 +228,7 @@ export default function BookingPageClient({
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder='Juan Dela Cruz'
                         className='h-11 rounded-xl'
+                        disabled={confirmed}
                       />
                     </div>
 
@@ -277,8 +241,49 @@ export default function BookingPageClient({
                         placeholder='09xx xxx xxxx'
                         inputMode='tel'
                         className='h-11 rounded-xl'
+                        disabled={confirmed}
                       />
                     </div>
+                  </div>
+
+                  {/* ✅ Privacy Notice + Consent */}
+                  <div className='rounded-2xl border border-black/10 bg-white p-4'>
+                    <p className='text-xs leading-relaxed text-black/70'>
+                      <span className='font-semibold text-black'>
+                        Privacy Notice:
+                      </span>{" "}
+                      By submitting this form, you consent to the collection and
+                      processing of your personal information in accordance with
+                      the Data Privacy Act of 2012 (RA 10173). Your data will be
+                      used only to contact you regarding your inquiry and will
+                      not be shared without your consent.
+                    </p>
+
+                    <div className='mt-3 flex items-start gap-2'>
+                      <input
+                        id='privacy'
+                        type='checkbox'
+                        checked={privacyAgreed}
+                        onChange={(e) => {
+                          setPrivacyAgreed(e.target.checked);
+                          if (e.target.checked) setPrivacyError(false);
+                        }}
+                        disabled={confirmed}
+                        className='mt-0.5 h-4 w-4 rounded border-black/20 accent-[#B19552]'
+                      />
+                      <label
+                        htmlFor='privacy'
+                        className='text-xs text-black/70'
+                      >
+                        I agree to the Privacy Notice.
+                      </label>
+                    </div>
+
+                    {privacyError && (
+                      <p className='mt-2 text-xs font-medium text-red-600'>
+                        Please tick the checkbox to continue.
+                      </p>
+                    )}
                   </div>
 
                   {confirmed && (
@@ -307,6 +312,9 @@ export default function BookingPageClient({
                             basis. If you’re unable to come, your slot may be
                             released to other patients.
                           </p>
+
+                          {/* createdAt captured for admin sorting */}
+                          {/* <p className='mt-2 text-[11px] text-black/40'>Created: {createdAt}</p> */}
                         </div>
                       </div>
                     </div>
@@ -317,25 +325,20 @@ export default function BookingPageClient({
                     <Button
                       type='button'
                       onClick={handleConfirm}
-                      disabled={!canConfirm || confirmed}
+                      disabled={!canConfirm}
                       className='h-12 w-full rounded-2xl text-white'
                       style={{
-                        backgroundColor:
-                          confirmed || !canConfirm ? "#cbbf9a" : GOLD_DARK,
+                        backgroundColor: canConfirm ? GOLD_DARK : "#cbbf9a",
                       }}
                     >
-                      {confirmed
-                        ? "Reserved"
-                        : submitting
-                        ? "Submitting..."
-                        : "Confirm Appointment"}
+                      {submitting ? "Submitting..." : "Confirm Appointment"}
                     </Button>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Branch Info (second on mobile) */}
+            {/* Branch Info */}
             <div className='order-2 lg:order-1 lg:col-span-5 min-h-0'>
               <Card className='rounded-3xl border-black/10 bg-white lg:h-full flex flex-col'>
                 <CardHeader className='pb-3 shrink-0'>
@@ -419,7 +422,9 @@ export default function BookingPageClient({
               <p className='truncate text-[11px] text-black/60'>
                 {canConfirm
                   ? "Ready to confirm"
-                  : "Enter your details to continue"}
+                  : privacyAgreed
+                  ? "Enter your details to continue"
+                  : "Please agree to the Privacy Notice"}
               </p>
             </div>
 
@@ -435,39 +440,6 @@ export default function BookingPageClient({
           </div>
         </div>
       )}
-
-      {/* ✅ Success dialog */}
-      <Dialog open={reservedOpen} onOpenChange={setReservedOpen}>
-        <DialogContent className='rounded-3xl border-black/10'>
-          <DialogHeader>
-            <DialogTitle className='tracking-tight'>Slot Reserved</DialogTitle>
-            <DialogDescription className='text-black/70'>
-              Your slot has been reserved. Please visit our clinic. Thank you.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className='mt-2 rounded-2xl border border-black/10 bg-[#FAF7F1] p-4 text-sm text-black/70'>
-            <p className='font-semibold text-black'>{branch.name}</p>
-            <p className='mt-1'>{displayDate}</p>
-            {reference ? (
-              <p className='mt-2'>
-                Reference: <span className='font-semibold'>{reference}</span>
-              </p>
-            ) : null}
-          </div>
-
-          <div className='mt-4 flex gap-2'>
-            <Button
-              type='button'
-              onClick={() => setReservedOpen(false)}
-              className='w-full rounded-2xl text-white'
-              style={{ backgroundColor: GOLD_DARK }}
-            >
-              Okay
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </main>
   );
 }
