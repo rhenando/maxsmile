@@ -3,7 +3,7 @@ import Image from "next/image";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SERVICES } from "@/app/services/services-data";
+import { SERVICES } from "@/app/(site)/services/services-data";
 
 const GOLD_DARK = "#B19552";
 

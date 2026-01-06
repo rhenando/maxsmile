@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
-import Link from "next/link";
-import { MapPin, Phone, Clock, ChevronLeft, CheckCircle2 } from "lucide-react";
+import { MapPin, Phone, Clock, CheckCircle2 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,16 +22,15 @@ import { BRANCHES, BranchSlug } from "@/lib/branches";
 const GOLD = "#DAC583";
 const GOLD_DARK = "#B19552";
 
-// ✅ Logo (put file in /public/)
-const LOGO_SRC = "/logo.png";
+// ✅ Clinic name (used in display + subtitle checks)
 const LOGO_ALT = "MaxSmile Dental Clinic";
 
 const SERVICES = [
-  { value: "consultation", label: "Consultation (30 mins)" },
-  { value: "cleaning", label: "Cleaning (45 mins)" },
-  { value: "fillings", label: "Fillings (60 mins)" },
-  { value: "whitening", label: "Whitening (60 mins)" },
-  { value: "braces", label: "Braces Assessment (45 mins)" },
+  { value: "consultation", label: "Consultation" },
+  { value: "cleaning", label: "Cleaning" },
+  { value: "fillings", label: "Fillings" },
+  { value: "whitening", label: "Whitening" },
+  { value: "braces", label: "Braces Assessment" },
 ] as const;
 
 type ServiceValue = (typeof SERVICES)[number]["value"];
@@ -104,17 +101,6 @@ export default function BookingPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchSlug]);
 
-  // ✅ Redirect to /services after successful submit (when dialog opens)
-  useEffect(() => {
-    if (!reservedOpen) return;
-
-    const t = setTimeout(() => {
-      router.push("/services");
-    }, 900);
-
-    return () => clearTimeout(t);
-  }, [reservedOpen, router]);
-
   const canConfirm =
     !!branch &&
     !!date &&
@@ -135,31 +121,43 @@ export default function BookingPageClient({
     setSubmitting(true);
     setConfirmed(false);
 
-    // ✅ record the exact moment they booked (admin uses this)
-    const nowIso = new Date().toISOString();
-    setCreatedAt(nowIso);
+    try {
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          branchSlug,
+          service,
+          date,
+          fullName,
+          mobile,
+          privacyAgreed: true,
+        }),
+      });
 
-    // simulate processing
-    await new Promise((r) => setTimeout(r, 650));
+      const json = await res.json().catch(() => ({}));
 
-    const ref =
-      "MS-" +
-      Math.random().toString(36).slice(2, 6).toUpperCase() +
-      "-" +
-      Math.random().toString(36).slice(2, 6).toUpperCase();
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to submit booking.");
+      }
 
-    setReference(ref);
-    setConfirmed(true);
-    setSubmitting(false);
+      setReference(json.reference);
+      setCreatedAt(json.createdAt);
+      setConfirmed(true);
 
-    // ✅ show success dialog (then redirect effect runs)
-    setReservedOpen(true);
+      // ✅ show success dialog (NO auto-redirect)
+      setReservedOpen(true);
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || "Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-    /**
-     * Later (Supabase):
-     * insert { branchSlug, service, date, fullName, mobile, createdAt: nowIso, reference: ref }
-     * Then admin dashboard sorts by createdAt ASC for first-come-first-serve.
-     */
+  function handleSuccessOk() {
+    setReservedOpen(false);
+    router.push("/services");
   }
 
   if (!branch) {
@@ -192,35 +190,7 @@ export default function BookingPageClient({
 
   return (
     <main className='min-h-svh bg-[#FAF7F1] flex flex-col overflow-x-hidden'>
-      {/* Top strip */}
-      <div className='shrink-0 border-b border-black/10 bg-white/60 backdrop-blur'>
-        <div className='mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:px-8'>
-          <button
-            type='button'
-            onClick={() => router.back()}
-            className='inline-flex items-center gap-2 text-sm text-black/70 hover:text-black'
-          >
-            <ChevronLeft className='h-4 w-4' />
-            <span className='hidden sm:inline'>Back</span>
-          </button>
-
-          <Link href='/' className='inline-flex items-center justify-center'>
-            <div className='relative h-9 w-32 sm:h-12 sm:w-56'>
-              <Image
-                src={LOGO_SRC}
-                alt={LOGO_ALT}
-                fill
-                className='object-contain'
-                priority
-              />
-            </div>
-          </Link>
-
-          <p className='hidden sm:block max-w-45 truncate text-xs uppercase tracking-[0.22em] text-black/50'>
-            {branch.name}
-          </p>
-        </div>
-      </div>
+      {/* ✅ Header removed (global header already exists) */}
 
       {/* content */}
       <div className='flex-1 overflow-y-auto lg:overflow-hidden pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-0'>
@@ -505,9 +475,16 @@ export default function BookingPageClient({
       <Dialog open={reservedOpen} onOpenChange={setReservedOpen}>
         <DialogContent className='rounded-3xl border-black/10'>
           <DialogHeader>
-            <DialogTitle className='tracking-tight'>Slot Reserved</DialogTitle>
+            <DialogTitle className='tracking-tight'>
+              Reservation Confirmed
+            </DialogTitle>
             <DialogDescription className='text-black/70'>
-              Your slot has been reserved. Please visit our clinic. Thank you.
+              Your slot has been reserved. SMS sent with your reservation
+              details.
+              <span className='block mt-1 text-xs text-black/55'>
+                If you don’t receive the SMS, please double-check your number or
+                call the clinic.
+              </span>
             </DialogDescription>
           </DialogHeader>
 
@@ -524,11 +501,11 @@ export default function BookingPageClient({
           <div className='mt-4 flex gap-2'>
             <Button
               type='button'
-              onClick={() => setReservedOpen(false)}
+              onClick={handleSuccessOk}
               className='w-full rounded-2xl text-white'
               style={{ backgroundColor: GOLD_DARK }}
             >
-              Okay
+              OK
             </Button>
           </div>
         </DialogContent>
