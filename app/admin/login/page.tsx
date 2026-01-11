@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
@@ -12,12 +12,19 @@ import { Label } from "@/components/ui/label";
 const GOLD_DARK = "#B19552";
 
 export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={<div className='min-h-svh bg-[#FAF7F1]' />}>
+      <AdminLoginInner />
+    </Suspense>
+  );
+}
+
+function AdminLoginInner() {
   const router = useRouter();
   const params = useSearchParams();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>("");
 
