@@ -30,9 +30,7 @@ export default async function AdminProtectedLayout({
 
   return (
     <div className='min-h-svh bg-[#FAF7F1]'>
-      {/* Header sits OUTSIDE the padded container for clean spacing */}
       <AdminHeader branchSlug={adminRow.branch_slug} />
-
       <main className='mx-auto w-full max-w-7xl px-4 py-6'>{children}</main>
     </div>
   );
