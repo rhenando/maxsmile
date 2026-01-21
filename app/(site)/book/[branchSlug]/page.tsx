@@ -10,7 +10,7 @@ export default async function Page({
 }: {
   params: Params | Promise<Params>;
 }) {
-  const { branchSlug } = await params; // ✅ important in Next 16
+  const { branchSlug } = await params;
 
   const slug = decodeURIComponent(branchSlug).toLowerCase() as BranchSlug;
 

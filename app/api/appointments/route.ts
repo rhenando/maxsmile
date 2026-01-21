@@ -18,6 +18,32 @@ function makeReference() {
   return `MS-${y}${m}${day}-${rand}`;
 }
 
+/** ❌ Off day: Tuesday (0=Sun, 1=Mon, 2=Tue, ...) */
+const OFF_DAY = 2;
+
+function parseISODateParts(iso: string) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return null;
+
+  const y = Number(m[1]);
+  const mon = Number(m[2]);
+  const d = Number(m[3]);
+
+  // Build UTC date to avoid timezone shifting
+  const dt = new Date(Date.UTC(y, mon - 1, d));
+
+  // Validate real calendar date (prevents Feb 30 -> Mar 2 rollover)
+  if (
+    dt.getUTCFullYear() !== y ||
+    dt.getUTCMonth() !== mon - 1 ||
+    dt.getUTCDate() !== d
+  ) {
+    return null;
+  }
+
+  return { y, mon, d, weekday: dt.getUTCDay() };
+}
+
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
 
@@ -27,22 +53,51 @@ export async function POST(req: Request) {
   const full_name = body?.full_name ?? body?.fullName;
   const mobile = body?.mobile;
   const service = body?.service;
+
+  // ✅ safer boolean parsing (handles true/"true"/1/"1")
+  const rawPrivacy = body?.privacy_agreed ?? body?.privacyAgreed;
   const privacy_agreed =
-    body?.privacy_agreed ?? body?.privacyAgreed ?? body?.privacyAgreed === true;
+    rawPrivacy === true ||
+    rawPrivacy === "true" ||
+    rawPrivacy === 1 ||
+    rawPrivacy === "1";
 
   if (!branch_slug)
     return NextResponse.json({ error: "Missing branch_slug" }, { status: 400 });
+
   if (!appointment_date)
     return NextResponse.json(
       { error: "Missing appointment_date" },
       { status: 400 }
     );
+
+  const dateStr = String(appointment_date);
+  const parts = parseISODateParts(dateStr);
+
+  if (!parts) {
+    return NextResponse.json(
+      { error: "Invalid appointment_date format. Use YYYY-MM-DD." },
+      { status: 400 }
+    );
+  }
+
+  // ❌ Block Tuesdays
+  if (parts.weekday === OFF_DAY) {
+    return NextResponse.json(
+      { error: "We’re closed every Tuesday. Please choose another date." },
+      { status: 400 }
+    );
+  }
+
   if (!full_name || String(full_name).trim().length < 2)
     return NextResponse.json({ error: "Missing full_name" }, { status: 400 });
+
   if (!mobile || String(mobile).trim().length < 8)
     return NextResponse.json({ error: "Invalid mobile" }, { status: 400 });
+
   if (!service)
     return NextResponse.json({ error: "Missing service" }, { status: 400 });
+
   if (!privacy_agreed)
     return NextResponse.json(
       { error: "Privacy consent is required" },
@@ -56,7 +111,7 @@ export async function POST(req: Request) {
     .insert({
       branch_slug: String(branch_slug),
       service: String(service),
-      appointment_date: String(appointment_date),
+      appointment_date: dateStr,
       full_name: String(full_name).trim(),
       mobile: String(mobile).trim(),
       reference,

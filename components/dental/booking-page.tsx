@@ -58,6 +58,29 @@ function formatDisplayDate(iso: string) {
   return `${mon}/${dd}/${yyyy}`;
 }
 
+/** ❌ Off day: Tuesday (0=Sun, 1=Mon, 2=Tue, ...) */
+const OFF_DAY = 2;
+
+function isOffDay(iso: string) {
+  if (!iso) return false;
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1); // local date
+  return dt.getDay() === OFF_DAY;
+}
+
+/** If today is Tuesday, default to the next open day */
+function nextOpenDateFrom(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+
+  while (dt.getDay() === OFF_DAY) {
+    dt.setDate(dt.getDate() + 1);
+  }
+
+  const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
 export default function BookingPageClient({
   branchSlug,
 }: {
@@ -68,7 +91,11 @@ export default function BookingPageClient({
   const branch = BRANCHES[branchSlug as BranchSlug];
 
   const [service, setService] = useState<ServiceValue>("consultation");
-  const [date, setDate] = useState<string>(() => todayLocalISO());
+  const [date, setDate] = useState<string>(() =>
+    nextOpenDateFrom(todayLocalISO())
+  );
+
+  const [dateError, setDateError] = useState<string>("");
 
   const [fullName, setFullName] = useState("");
   const [mobile, setMobile] = useState("");
@@ -88,7 +115,8 @@ export default function BookingPageClient({
   const [privacyError, setPrivacyError] = useState(false);
 
   useEffect(() => {
-    setDate(todayLocalISO());
+    setDate(nextOpenDateFrom(todayLocalISO()));
+    setDateError("");
     setConfirmed(false);
     setReference("");
     setCreatedAt("");
@@ -104,6 +132,7 @@ export default function BookingPageClient({
   const canConfirm =
     !!branch &&
     !!date &&
+    !isOffDay(date) &&
     fullName.trim().length >= 2 &&
     mobile.trim().length >= 8 &&
     privacyAgreed &&
@@ -112,8 +141,16 @@ export default function BookingPageClient({
   async function handleConfirm() {
     if (!branch || !date || submitting || confirmed) return;
 
+    // reset any old date error
+    setDateError("");
+
     if (!privacyAgreed) {
       setPrivacyError(true);
+      return;
+    }
+
+    if (isOffDay(date)) {
+      setDateError("We’re closed every Tuesday. Please choose another date.");
       return;
     }
 
@@ -187,6 +224,7 @@ export default function BookingPageClient({
   const clinicDisplayName = `${LOGO_ALT} - ${branch.name}`;
   const mapQuery = `${clinicDisplayName} ${branch.address}`;
   const displayDate = formatDisplayDate(date);
+  const isClosedSelected = isOffDay(date);
 
   return (
     <main className='min-h-svh bg-[#FAF7F1] flex flex-col overflow-x-hidden'>
@@ -240,15 +278,37 @@ export default function BookingPageClient({
                         type='date'
                         min={todayLocalISO()}
                         value={date}
-                        onChange={(e) => setDate(e.target.value)}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setDate(v);
+                          setDateError(
+                            isOffDay(v)
+                              ? "We’re closed every Tuesday. Please choose another date."
+                              : ""
+                          );
+                        }}
                         className='h-11 rounded-xl'
                       />
-                      <p className='text-[11px] text-black/55'>
-                        Selected:{" "}
-                        <span className='font-semibold'>{displayDate}</span>
-                      </p>
+
+                      {dateError ? (
+                        <p className='text-[11px] font-medium text-red-600'>
+                          {dateError}
+                        </p>
+                      ) : (
+                        <p className='text-[11px] text-black/55'>
+                          Selected:{" "}
+                          <span className='font-semibold'>{displayDate}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
+
+                  {/* Optional: small banner if Tuesday is selected */}
+                  {isClosedSelected && !dateError ? (
+                    <div className='rounded-2xl border border-red-200 bg-red-50 p-3 text-xs text-red-700'>
+                      We’re closed every Tuesday. Please choose another date.
+                    </div>
+                  ) : null}
 
                   <div className='grid gap-3 sm:gap-4 sm:grid-cols-2'>
                     <div className='space-y-2'>
@@ -452,6 +512,8 @@ export default function BookingPageClient({
               <p className='truncate text-[11px] text-black/60'>
                 {canConfirm
                   ? "Ready to confirm"
+                  : isClosedSelected
+                  ? "Closed every Tuesday"
                   : privacyAgreed
                   ? "Enter your details to continue"
                   : "Please agree to the Privacy Notice"}

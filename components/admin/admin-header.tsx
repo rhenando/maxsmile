@@ -74,7 +74,7 @@ export default function AdminHeader({ branchSlug }: { branchSlug?: string }) {
               Branch:
             </span>
 
-            <span className='inline-flex items-center rounded-full border border-black/10 bg-white px-3 py-1 text-sm font-medium text-black/80 shadow-sm'>
+            <span className='inline-flex items-center rounded-full border uppercase border-black/10 bg-white px-3 py-1 text-sm font-medium text-black/80 shadow-sm'>
               <span
                 className='mr-2 inline-block h-2 w-2 rounded-full'
                 style={{ backgroundColor: GOLD_DARK }}
