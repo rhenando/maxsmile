@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { BRANCHES, BranchSlug } from "@/lib/branches";
+import { SERVICES, type ServiceValue } from "@/lib/services";
 
 // Brand tones
 const GOLD = "#DAC583";
@@ -25,19 +26,9 @@ const GOLD_DARK = "#B19552";
 // ✅ Clinic name (used in display + subtitle checks)
 const LOGO_ALT = "MaxSmile Dental Clinic";
 
-const SERVICES = [
-  { value: "consultation", label: "Consultation" },
-  { value: "cleaning", label: "Cleaning" },
-  { value: "fillings", label: "Fillings" },
-  { value: "whitening", label: "Whitening" },
-  { value: "braces", label: "Braces Assessment" },
-] as const;
-
-type ServiceValue = (typeof SERVICES)[number]["value"];
-
 function mapsLink(q: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    q
+    q,
   )}`;
 }
 
@@ -90,9 +81,9 @@ export default function BookingPageClient({
 
   const branch = BRANCHES[branchSlug as BranchSlug];
 
-  const [service, setService] = useState<ServiceValue>("consultation");
+  const [service, setService] = useState<ServiceValue>(SERVICES[0]?.value);
   const [date, setDate] = useState<string>(() =>
-    nextOpenDateFrom(todayLocalISO())
+    nextOpenDateFrom(todayLocalISO()),
   );
 
   const [dateError, setDateError] = useState<string>("");
@@ -122,7 +113,7 @@ export default function BookingPageClient({
     setCreatedAt("");
     setFullName("");
     setMobile("");
-    setService("consultation");
+    setService(SERVICES[0]?.value);
     setReservedOpen(false);
     setPrivacyAgreed(false);
     setPrivacyError(false);
@@ -228,8 +219,6 @@ export default function BookingPageClient({
 
   return (
     <main className='min-h-svh bg-[#FAF7F1] flex flex-col overflow-x-hidden'>
-      {/* ✅ Header removed (global header already exists) */}
-
       {/* content */}
       <div className='flex-1 overflow-y-auto lg:overflow-hidden pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-0'>
         <section className='mx-auto h-full w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8'>
@@ -284,7 +273,7 @@ export default function BookingPageClient({
                           setDateError(
                             isOffDay(v)
                               ? "We’re closed every Tuesday. Please choose another date."
-                              : ""
+                              : "",
                           );
                         }}
                         className='h-11 rounded-xl'
@@ -420,8 +409,8 @@ export default function BookingPageClient({
                       {confirmed
                         ? "Reserved"
                         : submitting
-                        ? "Submitting..."
-                        : "Confirm Appointment"}
+                          ? "Submitting..."
+                          : "Confirm Appointment"}
                     </Button>
                   </div>
                 </CardContent>
@@ -513,10 +502,10 @@ export default function BookingPageClient({
                 {canConfirm
                   ? "Ready to confirm"
                   : isClosedSelected
-                  ? "Closed every Tuesday"
-                  : privacyAgreed
-                  ? "Enter your details to continue"
-                  : "Please agree to the Privacy Notice"}
+                    ? "Closed every Tuesday"
+                    : privacyAgreed
+                      ? "Enter your details to continue"
+                      : "Please agree to the Privacy Notice"}
               </p>
             </div>
 

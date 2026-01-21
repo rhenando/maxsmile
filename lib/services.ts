@@ -13,3 +13,5 @@ export const SERVICES = [
   { value: "periapical_x_ray", label: "Periapical X-Ray" },
   { value: "panoramic_x_ray", label: "Panoramic X-Ray" },
 ] as const;
+
+export type ServiceValue = (typeof SERVICES)[number]["value"];

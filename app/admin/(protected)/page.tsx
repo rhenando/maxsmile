@@ -8,9 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import AppointmentActions from "@/components/admin/appointment-actions";
 import WalkInAppointmentButton from "@/components/admin/walkin-appointment";
+import { SERVICES } from "@/lib/services";
 
 const GOLD = "#DAC583";
 const PAGE_SIZE = 20;
+
+// ✅ value -> label lookup (works even if DB stores slug)
+const SERVICE_LABEL: Record<string, string> = Object.fromEntries(
+  SERVICES.map((s) => [s.value, s.label]),
+);
 
 type AppointmentRow = {
   id: string;
@@ -91,7 +97,6 @@ function buildQS(params: Record<string, string | undefined>) {
 export default async function AdminDashboardPage({
   searchParams,
 }: {
-  // ✅ Next.js now passes searchParams as a Promise in newer versions
   searchParams: Promise<SearchParams>;
 }) {
   const sp = await searchParams;
@@ -124,7 +129,7 @@ export default async function AdminDashboardPage({
     .from("appointments")
     .select(
       "id, created_at, branch_slug, service, appointment_date, full_name, mobile, reference, status",
-      { count: "exact" }
+      { count: "exact" },
     )
     .eq("branch_slug", branchSlug);
 
@@ -134,7 +139,7 @@ export default async function AdminDashboardPage({
 
   if (q) {
     query = query.or(
-      `full_name.ilike.%${q}%,reference.ilike.%${q}%,mobile.ilike.%${q}%`
+      `full_name.ilike.%${q}%,reference.ilike.%${q}%,mobile.ilike.%${q}%`,
     );
   }
 
@@ -301,7 +306,8 @@ export default async function AdminDashboardPage({
                       </td>
 
                       <td className='px-4 py-3 whitespace-nowrap'>
-                        {a.service}
+                        {/* ✅ show label if slug */}
+                        {SERVICE_LABEL[a.service] ?? a.service}
                       </td>
 
                       <td className='px-4 py-3 whitespace-nowrap'>
