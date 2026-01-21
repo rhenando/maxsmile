@@ -17,11 +17,22 @@ import {
 
 // ✅ Replace this with your shared SERVICES list if you have one
 let SERVICE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "consultation", label: "Consultation" },
-  { value: "cleaning", label: "Cleaning" },
-  { value: "tooth_extraction", label: "Tooth Extraction" },
-  { value: "braces", label: "Braces / Ortho" },
-  { value: "checkup", label: "Checkup" },
+  {
+    value: "Oral Prophylaxis (Cleaning)",
+    label: "Oral Prophylaxis (Cleaning)",
+  },
+  { value: "Tooth Restoration (Pasta)", label: "Tooth Restoration (Pasta)" },
+  { value: "Tooth Extraction (Bunot)", label: "Tooth Extraction (Bunot)" },
+  { value: "Dentures (Pustiso)", label: "Dentures (Pustiso)" },
+  { value: "Jacket Crown", label: "Jacket Crown" },
+  { value: "Fixed Bridge", label: "Fixed Bridge" },
+  { value: "Veneers", label: "Veneers" },
+  { value: "Teeth Whitening", label: "Teeth Whitening" },
+  { value: "Root Canal Treatment", label: "Root Canal Treatment" },
+  { value: "Implants", label: "Implants" },
+  { value: "Surgery", label: "Surgery" },
+  { value: "Periapical X-Ray", label: "Periapical X-Ray" },
+  { value: "Panoramic X-Ray", label: "Panoramic X-Ray" },
 ];
 
 try {

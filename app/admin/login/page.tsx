@@ -13,6 +13,15 @@ export const dynamic = "force-dynamic";
 
 const GOLD_DARK = "#B19552";
 
+function Spinner({ className = "" }: { className?: string }) {
+  return (
+    <span
+      aria-hidden='true'
+      className={`inline-block h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin ${className}`}
+    />
+  );
+}
+
 export default function AdminLoginPage() {
   return (
     <Suspense fallback={<div className='min-h-svh bg-[#FAF7F1]' />}>
@@ -33,6 +42,7 @@ function AdminLoginInner() {
   const unauthorized = params.get("error") === "unauthorized";
 
   async function handleLogin() {
+    if (submitting) return; // prevents double-click
     setError("");
     setSubmitting(true);
 
@@ -55,7 +65,17 @@ function AdminLoginInner() {
   }
 
   return (
-    <main className='min-h-svh bg-[#FAF7F1] flex items-center justify-center px-4 py-10'>
+    <main className='relative min-h-svh bg-[#FAF7F1] flex items-center justify-center px-4 py-10'>
+      {/* Optional: full-page loading overlay */}
+      {submitting ? (
+        <div className='absolute inset-0 z-10 flex items-center justify-center bg-[#FAF7F1]/70 backdrop-blur-sm'>
+          <div className='flex items-center gap-3 rounded-2xl border border-black/10 bg-white px-4 py-3 shadow-sm'>
+            <span className='inline-block h-5 w-5 rounded-full border-2 border-black/20 border-t-black animate-spin' />
+            <p className='text-sm text-black/70'>Signing you in…</p>
+          </div>
+        </div>
+      ) : null}
+
       <Card className='w-full max-w-md rounded-3xl border-black/10 bg-white'>
         <CardHeader className='pb-3'>
           <CardTitle className='text-lg'>Admin Login</CardTitle>
@@ -86,6 +106,7 @@ function AdminLoginInner() {
               placeholder='admin@maxsmile.com'
               className='h-11 rounded-xl'
               inputMode='email'
+              disabled={submitting}
             />
           </div>
 
@@ -97,6 +118,10 @@ function AdminLoginInner() {
               onChange={(e) => setPassword(e.target.value)}
               type='password'
               className='h-11 rounded-xl'
+              disabled={submitting}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleLogin();
+              }}
             />
           </div>
 
@@ -107,7 +132,14 @@ function AdminLoginInner() {
             className='h-12 w-full rounded-2xl text-white'
             style={{ backgroundColor: GOLD_DARK }}
           >
-            {submitting ? "Signing in..." : "Sign In"}
+            {submitting ? (
+              <span className='flex items-center justify-center gap-2'>
+                <Spinner />
+                Signing in...
+              </span>
+            ) : (
+              "Sign In"
+            )}
           </Button>
         </CardContent>
       </Card>
