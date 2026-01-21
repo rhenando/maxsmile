@@ -96,7 +96,7 @@ const SERVICE_DETAILS: Record<
       "We’ll evaluate your case first and guide you on the best treatment plan.",
       PPE_NOTE,
     ],
-    imageSrc: "/images/services/implants.jpg",
+    imageSrc: "/images/services/implants1.jpg",
     imageAlt: "Dental implants service",
   },
 
@@ -172,7 +172,7 @@ const SERVICE_DETAILS: Record<
       "We’ll take a targeted scan and your dentist will explain the findings.",
       PPE_NOTE,
     ],
-    imageSrc: "/images/services/periapical.jpg",
+    imageSrc: "/images/services/periapical1.jpg",
     imageAlt: "Periapical X-ray service",
   },
 
