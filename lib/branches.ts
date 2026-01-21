@@ -48,7 +48,8 @@ export const BRANCHES = {
   paranaque: {
     name: "Parañaque",
     subtitle: "MaxSmile Dental Clinic",
-    address: "Parañaque, Philippines",
+    address:
+      "Unit 103, Doña Eusebia Bldg, Kabihasnan, Parañaque, 1700 Metro Manila",
     phone: "+639662014424",
     hours: {
       sun: { open: "10 AM", close: "5 PM" },

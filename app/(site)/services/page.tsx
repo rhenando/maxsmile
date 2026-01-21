@@ -26,11 +26,13 @@ export default function ServicesPage() {
     <main className='min-h-svh bg-[#FAF7F1] overflow-x-hidden'>
       <section className='mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8'>
         <div className='flex flex-col gap-2'>
-          <h1 className='text-2xl font-semibold tracking-tight text-black sm:text-3xl'>
+          <h1 className='text-3xl font-semibold tracking-tight text-zinc-900 md:text-4xl'>
             Services
           </h1>
-          <p className='text-sm text-black/65'>
-            Select a service to view details.
+
+          <p className='mt-2 max-w-2xl text-sm leading-relaxed text-zinc-600 md:text-base'>
+            Explore our dental services across all branches — gentle care,
+            modern treatment, and results you can feel confident about.
           </p>
         </div>
       </section>
