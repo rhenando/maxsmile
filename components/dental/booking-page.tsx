@@ -1,5 +1,7 @@
 "use client";
 
+import BranchHours from "@/components/dental/BranchHours";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, Phone, Clock, CheckCircle2 } from "lucide-react";
@@ -472,7 +474,9 @@ export default function BookingPageClient({
                       className='mt-0.5 h-4 w-4 shrink-0'
                       style={{ color: GOLD_DARK }}
                     />
-                    <span className='wrap-break-word'>{branch.hours}</span>
+                    <div className='min-w-0 flex-1'>
+                      <BranchHours hours={branch.hours} />
+                    </div>
                   </div>
 
                   <a
@@ -480,7 +484,7 @@ export default function BookingPageClient({
                     className='inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-black/10 bg-[#FAF7F1] px-4 py-3 text-sm font-semibold text-black/80 transition hover:bg-black/5'
                   >
                     <Phone className='h-4 w-4' style={{ color: GOLD_DARK }} />
-                    <span>Call {branch.phone}</span>
+                    <span>{branch.phone}</span>
                   </a>
                 </CardContent>
               </Card>

@@ -7,13 +7,13 @@ import { Separator } from "@/components/ui/separator";
 const GOLD = "#DAC583";
 const GOLD_DARK = "#B19552";
 
-const PHONE = "+639000000000";
+const PHONE = "+639568954726";
 
 const NAV = [
   { label: "Services", href: "/services" },
   { label: "Location", href: "/location" },
   { label: "Testimonials", href: "/testimonials" },
-  { label: "FAQ", href: "/faq" },
+  // { label: "FAQ", href: "/faq" },
 ];
 
 export default function SiteFooter() {

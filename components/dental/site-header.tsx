@@ -30,7 +30,7 @@ const NAV = [
   { label: "Services", href: "/services" },
   { label: "Location", href: "/location" },
   { label: "Testimonials", href: "/testimonials" },
-  { label: "FAQ", href: "/faq" },
+  // { label: "FAQ", href: "/faq" },
 ];
 
 function cx(...classes: Array<string | false | null | undefined>) {
@@ -182,7 +182,7 @@ function BranchPickerModal({
         </Card>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
 
@@ -234,14 +234,14 @@ export default function SiteHeader() {
                   href={item.href}
                   className={cx(
                     "relative transition hover:text-black",
-                    active && "text-black"
+                    active && "text-black",
                   )}
                 >
                   {item.label}
                   <span
                     className={cx(
                       "pointer-events-none absolute -bottom-2 left-0 h-px w-full opacity-0 transition",
-                      active && "opacity-100"
+                      active && "opacity-100",
                     )}
                     style={{ backgroundColor: GOLD_DARK }}
                   />
@@ -310,14 +310,14 @@ export default function SiteHeader() {
                           "flex items-center justify-between rounded-xl border px-3 py-3 text-sm font-medium transition",
                           active
                             ? "border-black/10 bg-white text-black"
-                            : "border-transparent text-black/70 hover:bg-white/60"
+                            : "border-transparent text-black/70 hover:bg-white/60",
                         )}
                       >
                         <span>{item.label}</span>
                         <span
                           className={cx(
                             "h-1.5 w-1.5 rounded-full opacity-0",
-                            active && "opacity-100"
+                            active && "opacity-100",
                           )}
                           style={{ backgroundColor: GOLD_DARK }}
                         />
