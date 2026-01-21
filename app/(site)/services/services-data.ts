@@ -96,7 +96,7 @@ const SERVICE_DETAILS: Record<
       "We’ll evaluate your case first and guide you on the best treatment plan.",
       PPE_NOTE,
     ],
-    imageSrc: "/images/services/implants1.jpg",
+    imageSrc: "/images/services/implants.jpg",
     imageAlt: "Dental implants service",
   },
 
