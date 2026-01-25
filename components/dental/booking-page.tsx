@@ -107,8 +107,14 @@ export default function BookingPageClient({
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [privacyError, setPrivacyError] = useState(false);
 
+  // ✅ Capacity state (silent)
+  const [checkingCapacity, setCheckingCapacity] = useState(false);
+  const [isFull, setIsFull] = useState(false);
+
   useEffect(() => {
-    setDate(nextOpenDateFrom(todayLocalISO()));
+    const next = nextOpenDateFrom(todayLocalISO());
+    setDate(next);
+
     setDateError("");
     setConfirmed(false);
     setReference("");
@@ -119,22 +125,85 @@ export default function BookingPageClient({
     setReservedOpen(false);
     setPrivacyAgreed(false);
     setPrivacyError(false);
+
+    setCheckingCapacity(false);
+    setIsFull(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchSlug]);
+
+  // ✅ Check capacity when date/branch changes (no UI spam)
+  useEffect(() => {
+    if (!branch || !date) return;
+
+    // off day message (still show)
+    if (isOffDay(date)) {
+      setIsFull(true);
+      setDateError("We’re closed every Tuesday. Please choose another date.");
+      return;
+    }
+
+    const controller = new AbortController();
+    let cancelled = false;
+
+    async function checkCapacity() {
+      setCheckingCapacity(true);
+
+      try {
+        const res = await fetch(
+          `/api/appointments?branchSlug=${encodeURIComponent(
+            branchSlug,
+          )}&date=${encodeURIComponent(date)}`,
+          { signal: controller.signal, cache: "no-store" },
+        );
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) return;
+        if (cancelled) return;
+
+        const full = !!json?.isFull;
+        setIsFull(full);
+
+        if (full) {
+          setDateError(
+            "Schedule for this date is full. Please choose another day.",
+          );
+        } else {
+          // clear only capacity error
+          setDateError("");
+        }
+      } catch (e: any) {
+        if (e?.name !== "AbortError") {
+          // if availability check fails, don't block; POST will still enforce
+          setIsFull(false);
+        }
+      } finally {
+        if (!cancelled) setCheckingCapacity(false);
+      }
+    }
+
+    checkCapacity();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [branchSlug, date, branch]);
 
   const canConfirm =
     !!branch &&
     !!date &&
     !isOffDay(date) &&
+    !isFull &&
     fullName.trim().length >= 2 &&
     mobile.trim().length >= 8 &&
     privacyAgreed &&
-    !submitting;
+    !submitting &&
+    !checkingCapacity;
 
   async function handleConfirm() {
     if (!branch || !date || submitting || confirmed) return;
 
-    // reset any old date error
+    // reset any old date error (we'll re-set if needed)
     setDateError("");
 
     if (!privacyAgreed) {
@@ -144,6 +213,14 @@ export default function BookingPageClient({
 
     if (isOffDay(date)) {
       setDateError("We’re closed every Tuesday. Please choose another date.");
+      return;
+    }
+
+    // client-side guard (server will also enforce)
+    if (isFull) {
+      setDateError(
+        "Schedule for this date is full. Please choose another day.",
+      );
       return;
     }
 
@@ -166,6 +243,16 @@ export default function BookingPageClient({
       });
 
       const json = await res.json().catch(() => ({}));
+
+      // ✅ handle capacity rejection cleanly
+      if (res.status === 409) {
+        setIsFull(true);
+        setDateError(
+          json?.error ||
+            "Schedule for this date is full. Please choose another day.",
+        );
+        return;
+      }
 
       if (!res.ok) {
         throw new Error(json?.error || "Failed to submit booking.");
@@ -272,11 +359,16 @@ export default function BookingPageClient({
                         onChange={(e) => {
                           const v = e.target.value;
                           setDate(v);
+
+                          // off day message immediate; full check runs after
                           setDateError(
                             isOffDay(v)
                               ? "We’re closed every Tuesday. Please choose another date."
                               : "",
                           );
+
+                          // reset full flag while checking
+                          setIsFull(false);
                         }}
                         className='h-11 rounded-xl'
                       />
@@ -412,7 +504,9 @@ export default function BookingPageClient({
                         ? "Reserved"
                         : submitting
                           ? "Submitting..."
-                          : "Confirm Appointment"}
+                          : isFull
+                            ? "Schedule Full"
+                            : "Confirm Appointment"}
                     </Button>
                   </div>
                 </CardContent>
@@ -503,13 +597,15 @@ export default function BookingPageClient({
                 {displayDate ? ` • ${displayDate}` : ""}
               </p>
               <p className='truncate text-[11px] text-black/60'>
-                {canConfirm
-                  ? "Ready to confirm"
-                  : isClosedSelected
-                    ? "Closed every Tuesday"
-                    : privacyAgreed
-                      ? "Enter your details to continue"
-                      : "Please agree to the Privacy Notice"}
+                {isClosedSelected
+                  ? "Closed every Tuesday"
+                  : isFull
+                    ? "Schedule is full — choose another day"
+                    : canConfirm
+                      ? "Ready to confirm"
+                      : privacyAgreed
+                        ? "Enter your details to continue"
+                        : "Please agree to the Privacy Notice"}
               </p>
             </div>
 
@@ -520,7 +616,7 @@ export default function BookingPageClient({
               className='ml-auto h-11 shrink-0 rounded-xl px-4 text-xs font-semibold text-white'
               style={{ backgroundColor: canConfirm ? GOLD_DARK : "#cbbf9a" }}
             >
-              {submitting ? "Submitting..." : "Confirm"}
+              {submitting ? "Submitting..." : isFull ? "Full" : "Confirm"}
             </button>
           </div>
         </div>

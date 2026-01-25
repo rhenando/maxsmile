@@ -1,31 +1,35 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+"use client";
 
-const testimonials = [
-  {
-    quote: "Super gentle and professional. Clean clinic and easy booking!",
-    name: "M. Santos",
-  },
-  {
-    quote: "Fast reply and smooth appointment scheduling. Highly recommended.",
-    name: "J. Rivera",
-  },
-  {
-    quote: "Premium service from start to finish. Loved the experience.",
-    name: "A. Cruz",
-  },
+import Image from "next/image";
+import { useRef } from "react";
+import Autoplay from "embla-carousel-autoplay";
+
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+
+const testimonialSlides = [
+  { imageSrc: "/images/testimonials/f1.jpg", imageAlt: "Customer feedback" },
+  { imageSrc: "/images/testimonials/f2.jpg", imageAlt: "Customer feedback" },
+  { imageSrc: "/images/testimonials/f3.jpg", imageAlt: "Customer feedback" },
+  { imageSrc: "/images/testimonials/f4.jpg", imageAlt: "Customer feedback" },
+  { imageSrc: "/images/testimonials/f5.jpg", imageAlt: "Customer feedback" },
+  { imageSrc: "/images/testimonials/f6.jpg", imageAlt: "Customer feedback" },
 ];
 
-function initials(name: string) {
-  return name
-    .split(" ")
-    .map((p) => p[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
-
 export default function SocialProof() {
+  const autoplay = useRef(
+    Autoplay({
+      delay: 3000, // ✅ speed here (ms)
+      stopOnInteraction: true,
+      stopOnMouseEnter: true,
+    }),
+  );
+
   return (
     <section className='border-y border-black/10 bg-white/60 py-10 sm:py-14'>
       <div className='mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8'>
@@ -42,34 +46,36 @@ export default function SocialProof() {
           </div>
         </div>
 
-        <div className='mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-          {testimonials.map((t) => (
-            <Card
-              key={t.name}
-              className='h-full rounded-3xl border-black/10 bg-white shadow-sm'
-            >
-              <CardContent className='flex h-full flex-col p-5 sm:p-6'>
-                <p className='text-sm leading-relaxed text-black/70 sm:text-base'>
-                  “{t.quote}”
-                </p>
-
-                <div className='mt-5 flex items-center gap-3'>
-                  <Avatar className='h-10 w-10 shrink-0 border border-[#AF9046]/40'>
-                    <AvatarFallback className='bg-[#FAF7F1] text-xs font-medium text-[#AF9046]'>
-                      {initials(t.name)}
-                    </AvatarFallback>
-                  </Avatar>
-
-                  <div className='min-w-0 leading-tight'>
-                    <p className='truncate text-sm font-medium'>{t.name}</p>
-                    <p className='text-xs text-black/50'>Verified patient</p>
+        <div className='relative mt-6'>
+          <Carousel
+            opts={{ align: "start", loop: true }}
+            plugins={[autoplay.current]}
+            className='w-full'
+            onMouseEnter={autoplay.current.stop}
+            onMouseLeave={autoplay.current.reset}
+          >
+            <CarouselContent className='-ml-3'>
+              {testimonialSlides.map((t) => (
+                <CarouselItem
+                  key={t.imageSrc}
+                  className='pl-3 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4'
+                >
+                  <div className='relative w-full aspect-square overflow-hidden rounded-3xl border border-black/10 bg-white shadow-sm'>
+                    <Image
+                      src={t.imageSrc}
+                      alt={t.imageAlt}
+                      fill
+                      className='object-cover object-center'
+                      sizes='(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw'
+                    />
                   </div>
-                </div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
 
-                <div className='mt-4 h-px w-14 bg-[#AF9046]/60' />
-              </CardContent>
-            </Card>
-          ))}
+            <CarouselPrevious className='hidden sm:flex -left-4 border-black/10 bg-white/90 hover:bg-white' />
+            <CarouselNext className='hidden sm:flex -right-4 border-black/10 bg-white/90 hover:bg-white' />
+          </Carousel>
         </div>
       </div>
     </section>

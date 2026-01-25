@@ -10,6 +10,8 @@ const supabaseAdmin = createClient(
   { auth: { persistSession: false } },
 );
 
+const DAILY_LIMIT_PER_BRANCH = 20;
+
 // ✅ derive the literal union type from SERVICES
 type ServiceValue = (typeof SERVICES)[number]["value"];
 
@@ -52,6 +54,72 @@ function parseISODateParts(iso: string) {
   }
 
   return { y, mon, d, weekday: dt.getUTCDay() };
+}
+
+/**
+ * ✅ GET /api/appointments?branchSlug=...&date=YYYY-MM-DD
+ * Returns availability so the UI can disable the button early.
+ */
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+
+  const branch_slug =
+    searchParams.get("branch_slug") || searchParams.get("branchSlug");
+  const appointment_date =
+    searchParams.get("appointment_date") || searchParams.get("date");
+
+  if (!branch_slug || !appointment_date) {
+    return NextResponse.json(
+      { error: "Missing branch_slug/branchSlug or appointment_date/date" },
+      { status: 400 },
+    );
+  }
+
+  const dateStr = String(appointment_date);
+  const parts = parseISODateParts(dateStr);
+  if (!parts) {
+    return NextResponse.json(
+      { error: "Invalid appointment_date format. Use YYYY-MM-DD." },
+      { status: 400 },
+    );
+  }
+
+  // optional: treat off-day as "full" for UI
+  if (parts.weekday === OFF_DAY) {
+    return NextResponse.json({
+      branch_slug: String(branch_slug),
+      appointment_date: dateStr,
+      limit: DAILY_LIMIT_PER_BRANCH,
+      count: 0,
+      remaining: 0,
+      isFull: true,
+      isOffDay: true,
+    });
+  }
+
+  const { count, error } = await supabaseAdmin
+    .from("appointments")
+    .select("reference", { count: "exact", head: true })
+    .eq("branch_slug", String(branch_slug))
+    .eq("appointment_date", dateStr)
+    // ✅ count only active reservations (adjust to match your statuses)
+    .in("status", ["reserved", "confirmed"]);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const c = count ?? 0;
+
+  return NextResponse.json({
+    branch_slug: String(branch_slug),
+    appointment_date: dateStr,
+    limit: DAILY_LIMIT_PER_BRANCH,
+    count: c,
+    remaining: Math.max(0, DAILY_LIMIT_PER_BRANCH - c),
+    isFull: c >= DAILY_LIMIT_PER_BRANCH,
+    isOffDay: false,
+  });
 }
 
 export async function POST(req: Request) {
@@ -118,13 +186,35 @@ export async function POST(req: Request) {
       { status: 400 },
     );
 
+  // ✅ CAPACITY CHECK (server-enforced)
+  const { count, error: countErr } = await supabaseAdmin
+    .from("appointments")
+    .select("reference", { count: "exact", head: true })
+    .eq("branch_slug", String(branch_slug))
+    .eq("appointment_date", dateStr)
+    .in("status", ["reserved", "confirmed"]); // adjust if needed
+
+  if (countErr) {
+    return NextResponse.json({ error: countErr.message }, { status: 500 });
+  }
+
+  if ((count ?? 0) >= DAILY_LIMIT_PER_BRANCH) {
+    return NextResponse.json(
+      {
+        error:
+          "This branch is fully booked for the selected date. Please choose another date.",
+      },
+      { status: 409 },
+    );
+  }
+
   const reference = makeReference();
 
   const { data, error } = await supabaseAdmin
     .from("appointments")
     .insert({
       branch_slug: String(branch_slug),
-      service: serviceValue, // ✅ serviceValue is now narrowed by isServiceValue
+      service: serviceValue,
       appointment_date: dateStr,
       full_name: String(full_name).trim(),
       mobile: String(mobile).trim(),
