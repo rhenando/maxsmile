@@ -21,13 +21,14 @@ const SERVICE_DETAILS: Record<
 > = {
   consultation: {
     duration: "30–45 mins",
-    desc: "Initial consultation to assess your concern and recommend the best treatment plan.",
+    desc: "Consultation to assess your concern and recommend the best treatment plan.",
     bullets: [
+      "Consultation fee: ₱500",
       "Oral assessment",
       "Treatment options + estimate",
-      "Next-step guidance",
     ],
     whatToExpect: [
+      "Consultation fee: ₱500",
       "We’ll check your concern, history, and do an initial oral assessment.",
       "You’ll get recommended options based on your case and budget.",
       "If an X-ray is needed, we’ll advise which type to take.",
@@ -59,13 +60,14 @@ const SERVICE_DETAILS: Record<
 
   braces_removal: {
     duration: "45–60 mins",
-    desc: "Safe braces removal with cleaning/polish and post-braces guidance.",
+    desc: "Braces removal with cleaning/polish and post-braces guidance.",
     bullets: [
+      "Braces removal fee: ₱2,000",
       "Bracket + wire removal",
       "Cleaning/polish after removal",
-      "Retainer guidance (if needed)",
     ],
     whatToExpect: [
+      "Braces removal fee: ₱2,000",
       "We’ll carefully remove brackets and wires, then clean residual adhesive.",
       "We’ll do a quick polish so teeth feel smooth after removal.",
       "We’ll discuss retainers and next steps to maintain alignment.",
@@ -335,16 +337,16 @@ const SERVICE_DETAILS: Record<
     imageAlt: "Veneers service",
   },
 
-  // ✅ Added because you added this service value to "@/lib/services"
   adjustment: {
     duration: "20–40 mins",
-    desc: "Dental adjustment visit (e.g., braces adjustment or bite adjustment depending on your case).",
+    desc: "Dental adjustment visit for follow-ups or comfort checks.",
     bullets: [
+      "Adjustment fee: ₱1,000",
       "Quick assessment",
-      "Necessary adjustments",
       "After-care reminders",
     ],
     whatToExpect: [
+      "Adjustment fee: ₱1,000",
       "We’ll assess what needs adjustment based on your concern.",
       "Your dentist will perform the required adjustment and check comfort.",
       "You’ll get simple after-care tips and what to watch out for.",
