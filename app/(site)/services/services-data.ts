@@ -1,5 +1,3 @@
-// app/services/services-data.ts
-
 import { SERVICES as SERVICE_OPTIONS } from "@/lib/services";
 import type { ServiceValue } from "@/lib/services";
 
@@ -21,6 +19,24 @@ const SERVICE_DETAILS: Record<
   ServiceValue,
   Omit<ServiceItem, "slug" | "title">
 > = {
+  consultation: {
+    duration: "30–45 mins",
+    desc: "Initial consultation to assess your concern and recommend the best treatment plan.",
+    bullets: [
+      "Oral assessment",
+      "Treatment options + estimate",
+      "Next-step guidance",
+    ],
+    whatToExpect: [
+      "We’ll check your concern, history, and do an initial oral assessment.",
+      "You’ll get recommended options based on your case and budget.",
+      "If an X-ray is needed, we’ll advise which type to take.",
+      PPE_NOTE,
+    ],
+    imageSrc: "/images/services/consultation.jpg",
+    imageAlt: "Dental consultation service",
+  },
+
   braces: {
     duration: "45–60 mins",
     desc: "Low down payment braces packages with freebies included.",
@@ -39,6 +55,25 @@ const SERVICE_DETAILS: Record<
     ],
     imageSrc: "/images/services/braces.jpg",
     imageAlt: "Braces service",
+  },
+
+  braces_removal: {
+    duration: "45–60 mins",
+    desc: "Safe braces removal with cleaning/polish and post-braces guidance.",
+    bullets: [
+      "Bracket + wire removal",
+      "Cleaning/polish after removal",
+      "Retainer guidance (if needed)",
+    ],
+    whatToExpect: [
+      "We’ll carefully remove brackets and wires, then clean residual adhesive.",
+      "We’ll do a quick polish so teeth feel smooth after removal.",
+      "We’ll discuss retainers and next steps to maintain alignment.",
+      "Note: Retainers are charged separately (if applicable).",
+      PPE_NOTE,
+    ],
+    imageSrc: "/images/services/braces-removal.jpg",
+    imageAlt: "Braces removal service",
   },
 
   dentures_pustiso: {
@@ -298,6 +333,25 @@ const SERVICE_DETAILS: Record<
     ],
     imageSrc: "/images/services/veneers.jpg",
     imageAlt: "Veneers service",
+  },
+
+  // ✅ Added because you added this service value to "@/lib/services"
+  adjustment: {
+    duration: "20–40 mins",
+    desc: "Dental adjustment visit (e.g., braces adjustment or bite adjustment depending on your case).",
+    bullets: [
+      "Quick assessment",
+      "Necessary adjustments",
+      "After-care reminders",
+    ],
+    whatToExpect: [
+      "We’ll assess what needs adjustment based on your concern.",
+      "Your dentist will perform the required adjustment and check comfort.",
+      "You’ll get simple after-care tips and what to watch out for.",
+      PPE_NOTE,
+    ],
+    imageSrc: "/images/services/adjustment.jpg",
+    imageAlt: "Dental adjustment service",
   },
 };
 

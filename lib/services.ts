@@ -1,7 +1,8 @@
-// lib/services.ts
-
 export const SERVICES = [
+  { value: "adjustment", label: "Adjustment" },
   { value: "braces", label: "Braces" },
+  { value: "braces_removal", label: "Braces Removal" },
+  { value: "consultation", label: "Consultation" },
   { value: "dentures_pustiso", label: "Dentures (Pustiso)" },
   { value: "fixed_bridge", label: "Fixed Bridge" },
   { value: "implants", label: "Implants" },
