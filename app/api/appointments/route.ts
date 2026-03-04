@@ -56,6 +56,63 @@ function parseISODateParts(iso: string) {
   return { y, mon, d, weekday: dt.getUTCDay() };
 }
 
+// ✅ Format date for SMS display like "Jan 03, 2026"
+function formatSMSDate(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(y, (m || 1) - 1, d || 1));
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+// ✅ SMS via Semaphore (non-blocking — booking won't fail if SMS fails)
+async function sendSMSConfirmation({
+  mobile,
+  fullName,
+  date,
+  reference,
+}: {
+  mobile: string;
+  fullName: string;
+  date: string;
+  reference: string;
+}) {
+  const apiKey = process.env.SEMAPHORE_API_KEY;
+  if (!apiKey) {
+    console.warn("SEMAPHORE_API_KEY is not set. SMS skipped.");
+    return;
+  }
+
+  const displayDate = formatSMSDate(date);
+  const message =
+    `Hi ${fullName}! Your appointment on ${displayDate} is confirmed. ` +
+    `Ref: ${reference}. First-come, first-served, 10AM-5PM. ` +
+    `Thank you & see you! Automated SMS, do not reply.`;
+
+  try {
+    const res = await fetch("https://api.semaphore.co/api/v4/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        apikey: apiKey,
+        number: mobile,
+        message,
+        sendername: process.env.SEMAPHORE_SENDER_NAME ?? "MAXSMILE",
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text().catch(() => "unknown");
+      console.error("SMS send failed:", res.status, err);
+    }
+  } catch (err) {
+    console.error("SMS send error:", err);
+  }
+}
+
 /**
  * ✅ GET /api/appointments?branchSlug=...&date=YYYY-MM-DD
  * Returns availability so the UI can disable the button early.
@@ -159,7 +216,7 @@ export async function POST(req: Request) {
 
   if (parts.weekday === OFF_DAY) {
     return NextResponse.json(
-      { error: "We’re closed every Tuesday. Please choose another date." },
+      { error: "We're closed every Tuesday. Please choose another date." },
       { status: 400 },
     );
   }
@@ -192,7 +249,7 @@ export async function POST(req: Request) {
     .select("reference", { count: "exact", head: true })
     .eq("branch_slug", String(branch_slug))
     .eq("appointment_date", dateStr)
-    .in("status", ["reserved", "confirmed"]); // adjust if needed
+    .in("status", ["reserved", "confirmed"]);
 
   if (countErr) {
     return NextResponse.json({ error: countErr.message }, { status: 500 });
@@ -209,6 +266,8 @@ export async function POST(req: Request) {
   }
 
   const reference = makeReference();
+  const trimmedName = String(full_name).trim();
+  const trimmedMobile = String(mobile).trim();
 
   const { data, error } = await supabaseAdmin
     .from("appointments")
@@ -216,8 +275,8 @@ export async function POST(req: Request) {
       branch_slug: String(branch_slug),
       service: serviceValue,
       appointment_date: dateStr,
-      full_name: String(full_name).trim(),
-      mobile: String(mobile).trim(),
+      full_name: trimmedName,
+      mobile: trimmedMobile,
       reference,
       status: "reserved",
       privacy_agreed: true,
@@ -228,6 +287,14 @@ export async function POST(req: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // ✅ Send SMS confirmation (non-blocking)
+  await sendSMSConfirmation({
+    mobile: trimmedMobile,
+    fullName: trimmedName,
+    date: dateStr,
+    reference: data.reference,
+  });
 
   return NextResponse.json({
     ok: true,
