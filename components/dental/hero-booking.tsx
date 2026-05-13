@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BRANCHES, BranchSlug } from "@/lib/branches";
 
 const HERO_VIDEO_MP4 = "/videos/clinic-hero.mp4";
-const HERO_POSTER = "/images/clinic-hero-poster.jpg";
+const HERO_POSTER = "/images/services/consultation.jpg";
 
 const GOLD = "#DAC583";
 const GOLD_DARK = "#B19552";

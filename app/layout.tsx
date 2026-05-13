@@ -6,11 +6,15 @@ import "./globals.css";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "optional",
+  fallback: ["Arial", "sans-serif"],
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "optional",
+  fallback: ["Consolas", "monospace"],
 });
 
 // ✅ Set this in Vercel/Env: NEXT_PUBLIC_SITE_URL=https://your-domain.com
@@ -127,9 +131,9 @@ export default function RootLayout({
   };
 
   return (
-    <html lang='en-PH'>
+    <html lang='en-PH' suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
         {/* Local Business JSON-LD (good for SEO) */}
         <Script
