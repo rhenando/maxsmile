@@ -47,6 +47,7 @@ function AdminLoginInner() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState("");
   const [attempts, setAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
@@ -59,10 +60,11 @@ function AdminLoginInner() {
     ? Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000))
     : 0;
 
+  const busy = submitting || redirecting;
   const canSubmit =
     isValidEmail(trimmedEmail) &&
     password.length >= 6 &&
-    !submitting &&
+    !busy &&
     !locked;
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
@@ -82,9 +84,11 @@ function AdminLoginInner() {
       if (signInError) throw signInError;
 
       setAttempts(0);
-      router.push("/admin");
+      setRedirecting(true);
+      router.replace("/admin");
       router.refresh();
     } catch {
+      setRedirecting(false);
       const nextAttempts = attempts + 1;
       setAttempts(nextAttempts);
       setError("Invalid email or password.");
@@ -102,6 +106,25 @@ function AdminLoginInner() {
   return (
     <main className="relative min-h-svh overflow-hidden bg-[#FAF7F1] px-4 py-10">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5" style={{ backgroundColor: GOLD }} />
+
+      {busy ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#FAF7F1]/80 px-4 backdrop-blur-sm">
+          <div className="flex w-full max-w-sm items-center gap-3 rounded-2xl border border-black/10 bg-white px-4 py-4 shadow-lg">
+            <span
+              aria-hidden="true"
+              className="inline-block h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-black/20 border-t-black"
+            />
+            <div>
+              <p className="text-sm font-medium text-black">
+                {redirecting ? "Opening dashboard" : "Signing you in"}
+              </p>
+              <p className="mt-0.5 text-xs text-black/55">
+                Please wait while we verify your access.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-5xl items-center justify-center">
         <div className="grid w-full overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_20px_70px_rgba(0,0,0,0.08)] lg:grid-cols-[0.9fr_1.1fr]">
@@ -201,7 +224,7 @@ function AdminLoginInner() {
                     className="h-11 rounded-xl"
                     inputMode="email"
                     autoComplete="email"
-                    disabled={submitting || locked}
+                    disabled={busy || locked}
                     aria-invalid={email.length > 0 && !isValidEmail(trimmedEmail)}
                   />
                 </div>
@@ -220,7 +243,7 @@ function AdminLoginInner() {
                       type={showPassword ? "text" : "password"}
                       className="h-11 rounded-xl pr-11"
                       autoComplete="current-password"
-                      disabled={submitting || locked}
+                      disabled={busy || locked}
                     />
                     <button
                       type="button"
@@ -243,12 +266,12 @@ function AdminLoginInner() {
                   className="h-12 w-full rounded-xl text-white"
                   style={{ backgroundColor: canSubmit ? GOLD_DARK : "#cbbf9a" }}
                 >
-                  {submitting ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Spinner />
-                      Signing in...
-                    </span>
-                  ) : (
+                      {busy ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Spinner />
+                          {redirecting ? "Opening dashboard..." : "Signing in..."}
+                        </span>
+                      ) : (
                     "Sign In"
                   )}
                 </Button>
