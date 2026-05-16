@@ -9,40 +9,12 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
-
-// ✅ Replace this with your shared SERVICES list if you have one
-let SERVICE_OPTIONS: Array<{ value: string; label: string }> = [
-  {
-    value: "Oral Prophylaxis (Cleaning)",
-    label: "Oral Prophylaxis (Cleaning)",
-  },
-  { value: "Tooth Restoration (Pasta)", label: "Tooth Restoration (Pasta)" },
-  { value: "Tooth Extraction (Bunot)", label: "Tooth Extraction (Bunot)" },
-  { value: "Dentures (Pustiso)", label: "Dentures (Pustiso)" },
-  { value: "Jacket Crown", label: "Jacket Crown" },
-  { value: "Fixed Bridge", label: "Fixed Bridge" },
-  { value: "Veneers", label: "Veneers" },
-  { value: "Teeth Whitening", label: "Teeth Whitening" },
-  { value: "Root Canal Treatment", label: "Root Canal Treatment" },
-  { value: "Implants", label: "Implants" },
-  { value: "Surgery", label: "Surgery" },
-  { value: "Periapical X-Ray", label: "Periapical X-Ray" },
-  { value: "Panoramic X-Ray", label: "Panoramic X-Ray" },
-];
-
-try {
-  // Optional dynamic import if you prefer resilience
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const mod = require("@/lib/services");
-  if (Array.isArray(mod?.SERVICES)) SERVICE_OPTIONS = mod.SERVICES;
-} catch {
-  // keep fallback
-}
+import { SERVICES, type ServiceValue } from "@/lib/services";
 
 const GOLD_DARK = "#B19552";
 
@@ -70,11 +42,11 @@ export default function WalkInAppointmentButton() {
   const [isPending, startTransition] = useTransition();
 
   const defaultDate = useMemo(() => todayYYYYMMDD(), []);
-  const defaultService = SERVICE_OPTIONS?.[0]?.value ?? "";
+  const defaultService = SERVICES[0]?.value ?? "consultation";
 
   const [fullName, setFullName] = useState("");
   const [mobile, setMobile] = useState("");
-  const [service, setService] = useState(defaultService);
+  const [service, setService] = useState<ServiceValue>(defaultService);
   const [appointmentDate, setAppointmentDate] = useState(defaultDate);
   const [status, setStatus] = useState<StatusValue>("confirmed");
   const [err, setErr] = useState<string | null>(null);
@@ -105,7 +77,7 @@ export default function WalkInAppointmentButton() {
         service,
         appointment_date: appointmentDate,
         status,
-        privacy_agreed: true, // ✅ walk-in: set automatically
+        privacy_agreed: true,
       }),
     });
 
@@ -126,9 +98,9 @@ export default function WalkInAppointmentButton() {
   return (
     <>
       <Button
-        type='button'
+        type="button"
         onClick={() => setOpen(true)}
-        className='rounded-2xl text-white'
+        className="rounded-xl text-white"
         style={{ backgroundColor: GOLD_DARK }}
       >
         + Walk-in Patient
@@ -141,53 +113,52 @@ export default function WalkInAppointmentButton() {
           if (!v) resetForm();
         }}
       >
-        <DialogContent className='rounded-3xl'>
+        <DialogContent className="rounded-2xl">
           <DialogHeader>
-            <DialogTitle className='tracking-tight'>New Walk-in</DialogTitle>
+            <DialogTitle className="tracking-tight">New Walk-in</DialogTitle>
             <DialogDescription>
-              Add a walk-in patient. This will create a new appointment record
-              for your branch.
+              Add a walk-in patient for your assigned branch.
             </DialogDescription>
           </DialogHeader>
 
-          <div className='grid gap-4'>
+          <div className="grid gap-4">
             {err ? (
-              <p className='rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700'>
+              <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {err}
               </p>
             ) : null}
 
-            <div className='grid gap-2'>
-              <Label className='text-sm'>Full name</Label>
+            <div className="grid gap-2">
+              <Label className="text-sm">Full name</Label>
               <Input
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className='rounded-2xl'
-                placeholder='Juan Dela Cruz'
+                className="rounded-xl"
+                placeholder="Juan Dela Cruz"
                 disabled={isPending}
               />
             </div>
 
-            <div className='grid gap-2'>
-              <Label className='text-sm'>Mobile</Label>
+            <div className="grid gap-2">
+              <Label className="text-sm">Mobile</Label>
               <Input
                 value={mobile}
                 onChange={(e) => setMobile(e.target.value)}
-                className='rounded-2xl'
-                placeholder='09xxxxxxxxx'
+                className="rounded-xl"
+                placeholder="09xxxxxxxxx"
                 disabled={isPending}
               />
             </div>
 
-            <div className='grid gap-2'>
-              <Label className='text-sm'>Service</Label>
+            <div className="grid gap-2">
+              <Label className="text-sm">Service</Label>
               <select
                 value={service}
-                onChange={(e) => setService(e.target.value)}
-                className='h-10 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm outline-none'
+                onChange={(e) => setService(e.target.value as ServiceValue)}
+                className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none"
                 disabled={isPending}
               >
-                {SERVICE_OPTIONS.map((s) => (
+                {SERVICES.map((s) => (
                   <option key={s.value} value={s.value}>
                     {s.label}
                   </option>
@@ -195,24 +166,24 @@ export default function WalkInAppointmentButton() {
               </select>
             </div>
 
-            <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
-              <div className='grid gap-2'>
-                <Label className='text-sm'>Appointment date</Label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label className="text-sm">Appointment date</Label>
                 <Input
-                  type='date'
+                  type="date"
                   value={appointmentDate}
                   onChange={(e) => setAppointmentDate(e.target.value)}
-                  className='rounded-2xl'
+                  className="rounded-xl"
                   disabled={isPending}
                 />
               </div>
 
-              <div className='grid gap-2'>
-                <Label className='text-sm'>Status</Label>
+              <div className="grid gap-2">
+                <Label className="text-sm">Status</Label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as StatusValue)}
-                  className='h-10 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm outline-none'
+                  className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none"
                   disabled={isPending}
                 >
                   {STATUS_OPTIONS.map((s) => (
@@ -225,11 +196,11 @@ export default function WalkInAppointmentButton() {
             </div>
           </div>
 
-          <DialogFooter className='gap-2 sm:gap-2'>
+          <DialogFooter className="gap-2 sm:gap-2">
             <Button
-              type='button'
-              variant='outline'
-              className='rounded-2xl'
+              type="button"
+              variant="outline"
+              className="rounded-xl"
               onClick={() => setOpen(false)}
               disabled={isPending}
             >
@@ -237,8 +208,8 @@ export default function WalkInAppointmentButton() {
             </Button>
 
             <Button
-              type='button'
-              className='rounded-2xl text-white'
+              type="button"
+              className="rounded-xl text-white"
               style={{ backgroundColor: GOLD_DARK }}
               onClick={handleCreate}
               disabled={isPending}

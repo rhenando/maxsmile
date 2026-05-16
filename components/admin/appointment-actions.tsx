@@ -100,14 +100,15 @@ export default function AppointmentActions({
           <Button
             type='button'
             variant='outline'
-            className='h-9 rounded-2xl border-black/10 bg-white px-3 text-xs font-semibold text-black/70'
+            className='h-8 rounded-xl border-black/10 bg-white px-2.5 text-xs font-semibold text-black/70'
             disabled={isPending}
+            aria-label={`Change status from ${labelForStatus(status)}`}
           >
-            <span className='mr-2'>{labelForStatus(status)}</span>
+            <span className='mr-1.5'>Update</span>
             {isPending ? (
-              <Loader2 className='h-4 w-4 animate-spin' />
+              <Loader2 className='h-3.5 w-3.5 animate-spin' />
             ) : (
-              <ChevronDown className='h-4 w-4' />
+              <ChevronDown className='h-3.5 w-3.5' />
             )}
           </Button>
         </DropdownMenuTrigger>
@@ -135,7 +136,7 @@ export default function AppointmentActions({
           <Button
             type='button'
             variant='outline'
-            className='h-9 w-9 rounded-2xl border-black/10 p-0'
+            className='h-8 w-8 rounded-xl border-black/10 p-0'
             disabled={isPending}
             aria-label='Delete appointment'
           >

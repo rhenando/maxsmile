@@ -1,64 +1,47 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 
-const ALLOWED = new Set([
-  "reserved",
-  "confirmed",
-  "completed",
-  "no_show",
-  "cancelled",
-]);
+import { createServiceRoleClient, getAdminContext } from "@/lib/admin-auth";
+import {
+  adminAppointmentSchema,
+  getClosedDateMessage,
+  makeReference,
+} from "@/lib/booking-rules";
+import {
+  forbiddenOriginResponse,
+  isSameOriginRequest,
+} from "@/lib/request-security";
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient();
+    if (!isSameOriginRequest(req)) return forbiddenOriginResponse();
 
-    const { data: claimsRes, error: claimsErr } =
-      await supabase.auth.getClaims();
-    const userId = claimsRes?.claims?.sub;
-
-    if (claimsErr || !userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data: adminRow, error: adminErr } = await supabase
-      .from("admin_users")
-      .select("branch_slug")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (adminErr || !adminRow?.branch_slug) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const admin = await getAdminContext();
+    if (!admin.ok) return admin.response;
 
     const body = await req.json().catch(() => null);
+    const parsed = adminAppointmentSchema.safeParse(body);
 
-    const full_name = (body?.full_name as string | undefined)?.trim();
-    const mobile = (body?.mobile as string | undefined)?.trim();
-    const service = (body?.service as string | undefined)?.trim();
-    const appointment_date = body?.appointment_date as string | undefined;
-    const privacy_agreed = Boolean(body?.privacy_agreed);
-
-    const statusRaw = (body?.status as string | undefined) ?? "reserved";
-    const status = statusRaw.toLowerCase().trim();
-
-    if (!full_name || !mobile || !service || !appointment_date) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-    }
-    if (!ALLOWED.has(status)) {
-      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid fields" }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const closedMessage = getClosedDateMessage(parsed.data.appointment_date);
+    if (closedMessage) {
+      return NextResponse.json({ error: closedMessage }, { status: 400 });
+    }
+
+    const supabaseAdmin = createServiceRoleClient();
+    const { data, error } = await supabaseAdmin
       .from("appointments")
       .insert({
-        branch_slug: adminRow.branch_slug,
-        full_name,
-        mobile,
-        service,
-        appointment_date,
-        status,
-        privacy_agreed,
+        branch_slug: admin.branchSlug,
+        full_name: parsed.data.full_name,
+        mobile: parsed.data.mobile,
+        service: parsed.data.service,
+        appointment_date: parsed.data.appointment_date,
+        status: parsed.data.status,
+        privacy_agreed: parsed.data.privacy_agreed,
+        reference: makeReference(),
       })
       .select("id")
       .maybeSingle();

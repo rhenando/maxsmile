@@ -2,20 +2,34 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ReactNode } from "react";
+import { AlertTriangle, CalendarCheck2, CheckCircle2, Clock3, Search } from "lucide-react";
+
 import AppointmentActions from "@/components/admin/appointment-actions";
 import WalkInAppointmentButton from "@/components/admin/walkin-appointment";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { createClient } from "@/lib/supabase/server";
 import { SERVICES } from "@/lib/services";
 
 const GOLD = "#DAC583";
+const GOLD_DARK = "#B19552";
 const PAGE_SIZE = 20;
 
-// ✅ value -> label lookup (works even if DB stores slug)
+const STATUS_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "reserved", label: "Reserved" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "completed", label: "Completed" },
+  { value: "no_show", label: "No-show" },
+  { value: "cancelled", label: "Cancelled" },
+] as const;
+
+type StatusFilter = (typeof STATUS_OPTIONS)[number]["value"];
+
 const SERVICE_LABEL: Record<string, string> = Object.fromEntries(
-  SERVICES.map((s) => [s.value, s.label]),
+  SERVICES.map((service) => [service.value, service.label]),
 );
 
 type AppointmentRow = {
@@ -23,10 +37,10 @@ type AppointmentRow = {
   created_at: string;
   branch_slug: string;
   service: string;
-  appointment_date: string; // YYYY-MM-DD
+  appointment_date: string;
   full_name: string;
   mobile: string;
-  reference: string;
+  reference: string | null;
   status: string;
 };
 
@@ -39,6 +53,34 @@ function toStr(v: string | string[] | undefined) {
 function toInt(v: string | undefined, fallback = 1) {
   const n = Number.parseInt(v ?? "", 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function isIsoDate(value?: string) {
+  if (!value) return false;
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function todayYYYYMMDD() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function normalizeStatus(value?: string): StatusFilter {
+  const candidate = (value ?? "all").toLowerCase();
+  return STATUS_OPTIONS.some((option) => option.value === candidate)
+    ? (candidate as StatusFilter)
+    : "all";
+}
+
+function sanitizeSearch(value?: string) {
+  return (value ?? "")
+    .trim()
+    .slice(0, 80)
+    .replace(/[%,()]/g, " ")
+    .replace(/\s+/g, " ");
 }
 
 function formatAppointmentDate(yyyyMmDd: string) {
@@ -68,7 +110,14 @@ function formatAppointmentDate(yyyyMmDd: string) {
     return yyyyMmDd;
   }
 
-  return `${months[monthIndex]}-${day}-${y}`;
+  return `${months[monthIndex]} ${day}, ${y}`;
+}
+
+function statusLabel(status: string) {
+  return (
+    STATUS_OPTIONS.find((option) => option.value === status.toLowerCase())
+      ?.label ?? status
+  );
 }
 
 function statusClass(status: string) {
@@ -87,11 +136,45 @@ function statusClass(status: string) {
 
 function buildQS(params: Record<string, string | undefined>) {
   const sp = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (v && v.trim() !== "") sp.set(k, v);
+  for (const [key, value] of Object.entries(params)) {
+    if (value && value.trim() !== "") sp.set(key, value);
   }
   const qs = sp.toString();
   return qs ? `?${qs}` : "";
+}
+
+function metricCard({
+  label,
+  value,
+  helper,
+  icon,
+}: {
+  label: string;
+  value: number;
+  helper: string;
+  icon: ReactNode;
+}) {
+  return (
+    <Card className="rounded-2xl border-black/10 bg-white shadow-sm">
+      <CardContent className="flex items-center justify-between gap-4 p-4">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-black/45">
+            {label}
+          </p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight text-black">
+            {value}
+          </p>
+          <p className="mt-1 text-xs text-black/50">{helper}</p>
+        </div>
+        <div
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-black/10"
+          style={{ backgroundColor: "rgba(218,197,131,0.16)", color: GOLD_DARK }}
+        >
+          {icon}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default async function AdminDashboardPage({
@@ -100,7 +183,6 @@ export default async function AdminDashboardPage({
   searchParams: Promise<SearchParams>;
 }) {
   const sp = await searchParams;
-
   const supabase = await createClient();
 
   const { data: claimsRes, error: claimsErr } = await supabase.auth.getClaims();
@@ -117,13 +199,15 @@ export default async function AdminDashboardPage({
     redirect("/admin/login?error=unauthorized");
   }
 
-  const branchSlug = adminRow.branch_slug;
-
-  const status = toStr(sp?.status) ?? "all";
-  const from = toStr(sp?.from);
-  const to = toStr(sp?.to);
-  const q = (toStr(sp?.q) ?? "").trim();
+  const branchSlug = adminRow.branch_slug as string;
+  const status = normalizeStatus(toStr(sp?.status));
+  const rawFrom = toStr(sp?.from);
+  const rawTo = toStr(sp?.to);
+  const from = isIsoDate(rawFrom) ? rawFrom : undefined;
+  const to = isIsoDate(rawTo) ? rawTo : undefined;
+  const q = sanitizeSearch(toStr(sp?.q));
   const page = toInt(toStr(sp?.page), 1);
+  const today = todayYYYYMMDD();
 
   let query = supabase
     .from("appointments")
@@ -146,197 +230,365 @@ export default async function AdminDashboardPage({
   const fromIdx = (page - 1) * PAGE_SIZE;
   const toIdx = fromIdx + PAGE_SIZE - 1;
 
-  const {
-    data: rows,
-    error,
-    count,
-  } = await query
-    .order("created_at", { ascending: false })
-    .range(fromIdx, toIdx);
+  const countBy = async (nextStatus?: string, date?: string) => {
+    let countQuery = supabase
+      .from("appointments")
+      .select("id", { count: "exact", head: true })
+      .eq("branch_slug", branchSlug);
 
+    if (nextStatus) countQuery = countQuery.eq("status", nextStatus);
+    if (date) countQuery = countQuery.eq("appointment_date", date);
+
+    const { count } = await countQuery;
+    return count ?? 0;
+  };
+
+  const [queryResult, reservedCount, confirmedCount, completedCount, todayCount] =
+    await Promise.all([
+      query.order("created_at", { ascending: false }).range(fromIdx, toIdx),
+      countBy("reserved"),
+      countBy("confirmed"),
+      countBy("completed"),
+      countBy(undefined, today),
+    ]);
+
+  const { data: rows, error, count } = queryResult;
   const appointments = (rows ?? []) as AppointmentRow[];
   const total = count ?? 0;
-
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const canPrev = page > 1;
-  const canNext = page < totalPages;
 
   const baseParams = {
     status: status === "all" ? undefined : status,
-    from: from || undefined,
-    to: to || undefined,
+    from,
+    to,
     q: q || undefined,
   };
 
+  if (total > 0 && page > totalPages) {
+    redirect(`/admin${buildQS({ ...baseParams, page: String(totalPages) })}`);
+  }
+
+  const canPrev = page > 1;
+  const canNext = page < totalPages;
+  const hasFilters = status !== "all" || !!from || !!to || !!q;
+
   return (
-    <div className='space-y-5'>
-      <Card className='rounded-3xl border-black/10 bg-white'>
-        <CardHeader className='pb-3'>
-          <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
+    <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {metricCard({
+          label: "Today",
+          value: todayCount,
+          helper: "Appointments dated today",
+          icon: <CalendarCheck2 className="h-5 w-5" />,
+        })}
+        {metricCard({
+          label: "Reserved",
+          value: reservedCount,
+          helper: "Needs confirmation",
+          icon: <Clock3 className="h-5 w-5" />,
+        })}
+        {metricCard({
+          label: "Confirmed",
+          value: confirmedCount,
+          helper: "Ready for visit",
+          icon: <CheckCircle2 className="h-5 w-5" />,
+        })}
+        {metricCard({
+          label: "Completed",
+          value: completedCount,
+          helper: "Finished records",
+          icon: <ShieldMetricIcon />,
+        })}
+      </div>
+
+      <Card className="rounded-2xl border-black/10 bg-white shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <CardTitle className='text-lg tracking-tight'>
+              <CardTitle className="text-lg tracking-tight">
                 Appointments
               </CardTitle>
               <div
-                className='mt-2 h-px w-20'
+                className="mt-2 h-px w-20"
                 style={{ backgroundColor: GOLD }}
               />
-              <p className='mt-2 text-sm text-black/60'>
-                Showing requests for your branch. Filter & search below.
+              <p className="mt-2 text-sm text-black/60">
+                Review, filter, and update appointment requests for your branch.
               </p>
             </div>
 
-            <div className='flex items-center gap-2'>
-              <WalkInAppointmentButton />
-            </div>
+            <WalkInAppointmentButton />
           </div>
         </CardHeader>
 
-        <CardContent className='space-y-4'>
+        <CardContent className="space-y-4">
           {error ? (
-            <p className='rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700'>
-              {error.message}
-            </p>
+            <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error.message}</span>
+            </div>
           ) : null}
 
-          <form className='flex flex-col gap-3 lg:flex-row lg:items-end'>
-            <div className='grid w-full grid-cols-1 gap-3 sm:grid-cols-4'>
-              <div className='sm:col-span-1'>
-                <label className='mb-1 block text-xs font-medium text-black/60'>
-                  Status
-                </label>
-                <select
-                  name='status'
-                  defaultValue={status}
-                  className='h-10 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm outline-none'
+          <form className="rounded-2xl border border-black/10 bg-[#FAF7F1] p-3">
+            <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+              <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-black/60">
+                    Status
+                  </label>
+                  <select
+                    name="status"
+                    defaultValue={status}
+                    className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none"
+                  >
+                    {STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-black/60">
+                    From
+                  </label>
+                  <Input
+                    name="from"
+                    type="date"
+                    defaultValue={from ?? ""}
+                    className="rounded-xl bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-black/60">
+                    To
+                  </label>
+                  <Input
+                    name="to"
+                    type="date"
+                    defaultValue={to ?? ""}
+                    className="rounded-xl bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-black/60">
+                    Search
+                  </label>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/35" />
+                    <Input
+                      name="q"
+                      placeholder="Name, ref, or mobile"
+                      defaultValue={q}
+                      className="rounded-xl bg-white pl-9"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  type="submit"
+                  className="h-10 rounded-xl text-white"
+                  style={{ backgroundColor: GOLD_DARK }}
                 >
-                  <option value='all'>All</option>
-                  <option value='reserved'>Reserved</option>
-                  <option value='confirmed'>Confirmed</option>
-                  <option value='completed'>Completed</option>
-                  <option value='no_show'>No-show</option>
-                  <option value='cancelled'>Cancelled</option>
-                </select>
-              </div>
-
-              <div className='sm:col-span-1'>
-                <label className='mb-1 block text-xs font-medium text-black/60'>
-                  From
-                </label>
-                <Input
-                  name='from'
-                  type='date'
-                  defaultValue={from ?? ""}
-                  className='rounded-2xl'
-                />
-              </div>
-
-              <div className='sm:col-span-1'>
-                <label className='mb-1 block text-xs font-medium text-black/60'>
-                  To
-                </label>
-                <Input
-                  name='to'
-                  type='date'
-                  defaultValue={to ?? ""}
-                  className='rounded-2xl'
-                />
-              </div>
-
-              <div className='sm:col-span-1'>
-                <label className='mb-1 block text-xs font-medium text-black/60'>
-                  Search
-                </label>
-                <Input
-                  name='q'
-                  placeholder='Name / Ref / Mobile'
-                  defaultValue={q}
-                  className='rounded-2xl'
-                />
-              </div>
-            </div>
-
-            <div className='flex gap-2'>
-              <Button type='submit' className='rounded-2xl'>
-                Apply
-              </Button>
-
-              <Link href='/admin'>
-                <Button type='button' variant='outline' className='rounded-2xl'>
-                  Clear
+                  Apply
                 </Button>
-              </Link>
+
+                <Button asChild variant="outline" className="h-10 rounded-xl bg-white">
+                  <Link href="/admin">Clear</Link>
+                </Button>
+              </div>
             </div>
           </form>
 
           {appointments.length === 0 ? (
-            <p className='text-sm text-black/60'>No appointments found.</p>
+            <div className="rounded-2xl border border-dashed border-black/15 bg-white px-4 py-10 text-center">
+              <p className="text-sm font-medium text-black">
+                {hasFilters ? "No matching appointments" : "No appointments yet"}
+              </p>
+              <p className="mx-auto mt-2 max-w-md text-sm text-black/55">
+                {hasFilters
+                  ? "Try clearing filters or widening your date range."
+                  : "New booking and walk-in records will appear here."}
+              </p>
+              {hasFilters ? (
+                <Button asChild variant="outline" className="mt-4 rounded-xl">
+                  <Link href="/admin">Clear filters</Link>
+                </Button>
+              ) : null}
+            </div>
           ) : (
-            <div className='overflow-x-auto rounded-2xl border border-black/10'>
-              <table className='w-full text-sm'>
-                <thead className='bg-[#FAF7F1] text-left text-black/70'>
+            <>
+              <div className="space-y-3 lg:hidden">
+                {appointments.map((appointment) => (
+                  <Card
+                    key={appointment.id}
+                    className="rounded-2xl border-black/10 bg-white shadow-sm"
+                  >
+                    <CardContent className="space-y-4 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-semibold text-black">
+                            {appointment.full_name}
+                          </p>
+                          <p className="mt-1 text-xs text-black/55">
+                            {formatAppointmentDate(appointment.appointment_date)}
+                          </p>
+                        </div>
+                        <span
+                          className={[
+                            "inline-flex shrink-0 items-center rounded-full border px-2 py-1 text-[11px] font-semibold",
+                            statusClass(appointment.status),
+                          ].join(" ")}
+                        >
+                          {statusLabel(appointment.status)}
+                        </span>
+                      </div>
+
+                      <div className="grid gap-3 text-sm text-black/70">
+                        <div>
+                          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-black/40">
+                            Service
+                          </p>
+                          <p className="mt-1 break-words">
+                            {SERVICE_LABEL[appointment.service] ??
+                              appointment.service}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+                          <div>
+                            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-black/40">
+                              Mobile
+                            </p>
+                            <a
+                              href={`tel:${appointment.mobile}`}
+                              className="mt-1 block break-words underline-offset-4 hover:underline"
+                            >
+                              {appointment.mobile}
+                            </a>
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-black/40">
+                              Reference
+                            </p>
+                            <p className="mt-1 break-all font-mono text-xs">
+                              {appointment.reference ?? "Not set"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+                          <div>
+                            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-black/40">
+                              Created
+                            </p>
+                            <p className="mt-1">
+                              {new Date(appointment.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="min-[420px]:text-right">
+                            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.12em] text-black/40">
+                              Actions
+                            </p>
+                            <AppointmentActions
+                              appointmentId={appointment.id}
+                              currentStatus={appointment.status}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <div className="hidden overflow-hidden rounded-2xl border border-black/10 lg:block">
+              <table className="w-full table-fixed text-[13px] leading-snug">
+                <colgroup>
+                  <col className="w-[13%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
+                </colgroup>
+                <thead className="bg-[#FAF7F1] text-left text-black/70">
                   <tr>
-                    <th className='px-4 py-3'>Created</th>
-                    <th className='px-4 py-3'>Appointment</th>
-                    <th className='px-4 py-3'>Service</th>
-                    <th className='px-4 py-3'>Patient</th>
-                    <th className='px-4 py-3'>Mobile</th>
-                    <th className='px-4 py-3'>Ref</th>
-                    <th className='px-4 py-3'>Status</th>
-                    <th className='px-4 py-3 text-right'>Actions</th>
+                    <th className="px-3 py-3 font-medium">Created</th>
+                    <th className="px-3 py-3 font-medium">Appointment</th>
+                    <th className="px-3 py-3 font-medium">Service</th>
+                    <th className="px-3 py-3 font-medium">Patient</th>
+                    <th className="px-3 py-3 font-medium">Mobile</th>
+                    <th className="px-3 py-3 font-medium">Reference</th>
+                    <th className="px-3 py-3 font-medium">Status</th>
+                    <th className="px-3 py-3 text-right font-medium">Actions</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {appointments.map((a, idx) => (
+                  {appointments.map((appointment, idx) => (
                     <tr
-                      key={a.id}
+                      key={appointment.id}
                       className={[
                         "border-t border-black/10",
-                        idx % 2 === 0 ? "bg-white" : "bg-black/1",
-                        "hover:bg-black/3",
+                        idx % 2 === 0 ? "bg-white" : "bg-[#FAF7F1]/35",
+                        "hover:bg-[#FAF7F1]",
                       ].join(" ")}
                     >
-                      <td className='px-4 py-3 whitespace-nowrap text-black/70'>
-                        {new Date(a.created_at).toLocaleString()}
+                      <td className="break-words px-3 py-3 text-black/65">
+                        {new Date(appointment.created_at).toLocaleString()}
                       </td>
 
-                      <td className='px-4 py-3 whitespace-nowrap font-medium text-black/80'>
-                        {formatAppointmentDate(a.appointment_date)}
+                      <td className="break-words px-3 py-3 font-medium text-black/85">
+                        {formatAppointmentDate(appointment.appointment_date)}
                       </td>
 
-                      <td className='px-4 py-3 whitespace-nowrap'>
-                        {/* ✅ show label if slug */}
-                        {SERVICE_LABEL[a.service] ?? a.service}
-                      </td>
-
-                      <td className='px-4 py-3 whitespace-nowrap'>
-                        {a.full_name}
-                      </td>
-
-                      <td className='px-4 py-3 whitespace-nowrap'>
-                        {a.mobile}
-                      </td>
-
-                      <td className='px-4 py-3 whitespace-nowrap font-mono text-[13px] text-black/70'>
-                        {a.reference}
-                      </td>
-
-                      <td className='px-4 py-3 whitespace-nowrap'>
-                        <span
-                          className={[
-                            "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
-                            statusClass(a.status),
-                          ].join(" ")}
-                        >
-                          {a.status}
+                      <td className="break-words px-3 py-3">
+                        <span>
+                          {SERVICE_LABEL[appointment.service] ??
+                            appointment.service}
                         </span>
                       </td>
 
-                      <td className='px-4 py-3 whitespace-nowrap text-right'>
+                      <td className="break-words px-3 py-3 font-medium text-black/80">
+                        {appointment.full_name}
+                      </td>
+
+                      <td className="break-words px-3 py-3">
+                        <a
+                          href={`tel:${appointment.mobile}`}
+                          className="underline-offset-4 hover:underline"
+                        >
+                          {appointment.mobile}
+                        </a>
+                      </td>
+
+                      <td className="break-all px-3 py-3 font-mono text-[12px] text-black/65">
+                        {appointment.reference ?? "Not set"}
+                      </td>
+
+                      <td className="px-3 py-3">
+                        <span
+                          className={[
+                            "inline-flex max-w-full items-center rounded-full border px-2 py-1 text-[11px] font-semibold",
+                            statusClass(appointment.status),
+                          ].join(" ")}
+                        >
+                          {statusLabel(appointment.status)}
+                        </span>
+                      </td>
+
+                      <td className="px-3 py-3 text-right">
                         <AppointmentActions
-                          appointmentId={a.id}
-                          currentStatus={a.status}
+                          appointmentId={appointment.id}
+                          currentStatus={appointment.status}
                         />
                       </td>
                     </tr>
@@ -344,31 +596,32 @@ export default async function AdminDashboardPage({
                 </tbody>
               </table>
             </div>
+            </>
           )}
 
-          <div className='flex flex-wrap items-center justify-between gap-3 pt-1'>
-            <p className='text-sm text-black/60'>
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <p className="text-sm text-black/60">
               Showing{" "}
-              <span className='font-medium text-black/80'>
-                {total === 0 ? 0 : fromIdx + 1}–{Math.min(toIdx + 1, total)}
+              <span className="font-medium text-black/80">
+                {total === 0 ? 0 : fromIdx + 1}-{Math.min(toIdx + 1, total)}
               </span>{" "}
-              of <span className='font-medium text-black/80'>{total}</span>
+              of <span className="font-medium text-black/80">{total}</span>
             </p>
 
-            <div className='flex items-center gap-2'>
+            <div className="flex items-center gap-2">
               <Link
                 aria-disabled={!canPrev}
                 className={!canPrev ? "pointer-events-none opacity-50" : ""}
                 href={buildQS({ ...baseParams, page: String(page - 1) })}
               >
-                <Button variant='outline' className='rounded-2xl'>
+                <Button variant="outline" className="rounded-xl">
                   Prev
                 </Button>
               </Link>
 
-              <span className='text-sm text-black/60'>
-                Page <span className='font-medium text-black/80'>{page}</span> /{" "}
-                <span className='font-medium text-black/80'>{totalPages}</span>
+              <span className="text-sm text-black/60">
+                Page <span className="font-medium text-black/80">{page}</span> /{" "}
+                <span className="font-medium text-black/80">{totalPages}</span>
               </span>
 
               <Link
@@ -376,7 +629,7 @@ export default async function AdminDashboardPage({
                 className={!canNext ? "pointer-events-none opacity-50" : ""}
                 href={buildQS({ ...baseParams, page: String(page + 1) })}
               >
-                <Button variant='outline' className='rounded-2xl'>
+                <Button variant="outline" className="rounded-xl">
                   Next
                 </Button>
               </Link>
@@ -386,4 +639,8 @@ export default async function AdminDashboardPage({
       </Card>
     </div>
   );
+}
+
+function ShieldMetricIcon() {
+  return <CheckCircle2 className="h-5 w-5" />;
 }

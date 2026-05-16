@@ -31,7 +31,7 @@ export default function Services() {
           {SERVICES.slice(0, 6).map((s) => (
             <Card
               key={s.slug}
-              className='p-0 overflow-hidden rounded-3xl border-black/10 bg-white shadow-[0_10px_26px_rgba(0,0,0,0.06)] transition hover:-translate-y-0.5 hover:shadow-md'
+              className='p-0 overflow-hidden rounded-2xl border-black/10 bg-white shadow-[0_10px_26px_rgba(0,0,0,0.06)] transition hover:-translate-y-0.5 hover:shadow-md'
             >
               {/* Image header (same as /services page) */}
               <div className='group relative m-0 w-full aspect-16/10 overflow-hidden bg-black/5'>
@@ -70,7 +70,7 @@ export default function Services() {
                   <Button
                     asChild
                     variant='outline'
-                    className='h-10 w-full rounded-2xl border-black/10 bg-white'
+                    className='h-10 w-full rounded-xl border-black/10 bg-white'
                   >
                     <Link href={`/services/${s.slug}`}>Know more</Link>
                   </Button>
@@ -85,7 +85,7 @@ export default function Services() {
           <Button
             asChild
             variant='outline'
-            className='h-11 w-full rounded-2xl border-black/10 bg-white'
+            className='h-11 w-full rounded-xl border-black/10 bg-white'
           >
             <Link href='/services'>View all services</Link>
           </Button>

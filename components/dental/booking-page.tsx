@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { BRANCHES, BranchSlug } from "@/lib/branches";
+import { HOLIDAYS } from "@/lib/booking-rules";
 import { SERVICES, type ServiceValue } from "@/lib/services";
 
 // Brand tones
@@ -31,12 +32,6 @@ const GOLD_DARK = "#B19552";
 const LOGO_ALT = "MaxSmile Dental Clinic";
 
 // ✅ Holiday dates (YYYY-MM-DD) — clinic is closed on these days
-const HOLIDAYS: Record<string, string> = {
-  "2026-04-02": "Holy Week (Maundy Thursday)",
-  "2026-04-03": "Holy Week (Good Friday)",
-  "2026-04-04": "Holy Week (Black Saturday)",
-};
-
 /** Convert Date to local YYYY-MM-DD */
 function toLocalISO(d: Date): string {
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
@@ -47,10 +42,6 @@ function isHoliday(iso: string): boolean {
   return iso in HOLIDAYS;
 }
 
-function isHolidayDate(d: Date): boolean {
-  return isHoliday(toLocalISO(d));
-}
-
 function getHolidayLabel(iso: string): string {
   return HOLIDAYS[iso] || "Holiday";
 }
@@ -58,10 +49,6 @@ function getHolidayLabel(iso: string): string {
 /** Returns true if the date is either Tuesday or a holiday */
 function isClosedDate(iso: string): boolean {
   return isOffDay(iso) || isHoliday(iso);
-}
-
-function isClosedDateObj(d: Date): boolean {
-  return isClosedDate(toLocalISO(d));
 }
 
 /** Returns a user-facing reason why the date is closed, or "" if open */
@@ -102,10 +89,6 @@ function isOffDay(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
   const dt = new Date(y, (m || 1) - 1, d || 1);
   return dt.getDay() === OFF_DAY;
-}
-
-function isTuesday(d: Date): boolean {
-  return d.getDay() === OFF_DAY;
 }
 
 /** If today is a closed date (Tuesday or holiday), default to the next open day */
@@ -152,7 +135,6 @@ export default function BookingPageClient({
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [reference, setReference] = useState<string>("");
-  const [createdAt, setCreatedAt] = useState<string>("");
   const [reservedOpen, setReservedOpen] = useState(false);
 
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
@@ -180,7 +162,6 @@ export default function BookingPageClient({
     setDateError("");
     setConfirmed(false);
     setReference("");
-    setCreatedAt("");
     setFullName("");
     setMobile("");
     setService(SERVICES[0]?.value);
@@ -190,7 +171,6 @@ export default function BookingPageClient({
     setCheckingCapacity(false);
     setIsFull(false);
     setCalendarOpen(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchSlug]);
 
   // Check capacity when date/branch changes
@@ -221,8 +201,10 @@ export default function BookingPageClient({
         const full = !!json?.isFull;
         setIsFull(full);
         setDateError(full ? "Schedule for this date is full. Please choose another day." : "");
-      } catch (e: any) {
-        if (e?.name !== "AbortError") setIsFull(false);
+      } catch (e: unknown) {
+        if (!(e instanceof DOMException && e.name === "AbortError")) {
+          setIsFull(false);
+        }
       } finally {
         if (!cancelled) setCheckingCapacity(false);
       }
@@ -292,6 +274,7 @@ export default function BookingPageClient({
           fullName,
           mobile,
           privacyAgreed: true,
+          website: "",
         }),
       });
 
@@ -306,12 +289,11 @@ export default function BookingPageClient({
       if (!res.ok) throw new Error(json?.error || "Failed to submit booking.");
 
       setReference(json.reference);
-      setCreatedAt(json.createdAt);
       setConfirmed(true);
       setReservedOpen(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert(err?.message || "Something went wrong. Please try again.");
+      alert(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -330,7 +312,7 @@ export default function BookingPageClient({
             <CardTitle>Branch not found</CardTitle>
           </CardHeader>
           <CardContent className='space-y-4 text-sm text-black/70'>
-            <p>This booking page doesn't exist. Please choose a branch again.</p>
+            <p>This booking page does not exist. Please choose a branch again.</p>
             <Button
               onClick={() => router.push("/")}
               className='rounded-xl text-white'
@@ -404,7 +386,7 @@ export default function BookingPageClient({
                     </CardTitle>
                     <div className='mt-2 h-px w-20' style={{ backgroundColor: GOLD }} />
                     <p className='mt-2 text-sm text-black/60'>
-                      No time selection needed. We'll arrange your time based on
+                      No time selection needed. We&apos;ll arrange your time based on
                       availability and confirm via call/text.
                     </p>
                   </CardHeader>
@@ -443,7 +425,7 @@ export default function BookingPageClient({
                           </button>
 
                           {calendarOpen && (
-                            <div className='absolute left-0 top-[calc(100%+4px)] z-50 rounded-2xl border border-black/10 bg-white p-3 shadow-xl'>
+                            <div className='absolute left-1/2 top-[calc(100%+4px)] z-50 w-[min(92vw,22rem)] -translate-x-1/2 rounded-2xl border border-black/10 bg-white p-3 shadow-xl sm:left-0 sm:w-auto sm:translate-x-0'>
                               <DayPicker
                                 className='booking-calendar'
                                 mode='single'
@@ -493,7 +475,7 @@ export default function BookingPageClient({
                     {/* Banner if a closed date is somehow selected */}
                     {isClosedSelected && !dateError ? (
                       <div className='rounded-2xl border border-red-200 bg-red-50 p-3 text-xs text-red-700'>
-                        {closedDateMessage(date) || "We're closed on this date. Please choose another date."}
+                        {closedDateMessage(date) || "We are closed on this date. Please choose another date."}
                       </div>
                     ) : null}
 
@@ -571,7 +553,7 @@ export default function BookingPageClient({
                             <p className='mt-2 text-black/65'>Your booking has been reserved.</p>
                             <p className='mt-2 text-black/60'>
                               Please note: we serve on a first come, first served
-                              basis. If you're unable to come, your slot may be
+                              basis. If you&apos;re unable to come, your slot may be
                               released to other patients.
                             </p>
                           </div>
@@ -719,7 +701,7 @@ export default function BookingPageClient({
               <DialogDescription className='text-black/70'>
                 Your slot has been reserved. SMS sent with your reservation details.
                 <span className='block mt-1 text-xs text-black/55'>
-                  If you don't receive the SMS, please double-check your number or call the clinic.
+                  If you don&apos;t receive the SMS, please double-check your number or call the clinic.
                 </span>
               </DialogDescription>
             </DialogHeader>
