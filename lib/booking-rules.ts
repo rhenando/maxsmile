@@ -10,6 +10,8 @@ export const HOLIDAYS: Record<string, string> = {
   "2026-04-02": "Holy Week (Maundy Thursday)",
   "2026-04-03": "Holy Week (Good Friday)",
   "2026-04-04": "Holy Week (Black Saturday)",
+  "2026-06-08": "Clinic closed",
+  "2026-06-09": "Clinic closed",
 };
 
 const BRANCH_SLUGS = Object.keys(BRANCHES) as BranchSlug[];
