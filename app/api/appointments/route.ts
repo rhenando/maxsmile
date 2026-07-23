@@ -27,6 +27,20 @@ function formatSMSDate(iso: string) {
   });
 }
 
+function normalizePhilippineMobile(mobile: string) {
+  const digits = mobile.replace(/[^\d+]/g, "");
+
+  if (/^09\d{9}$/.test(digits)) return `63${digits.slice(1)}`;
+  if (/^\+639\d{9}$/.test(digits)) return digits.slice(1);
+  if (/^639\d{9}$/.test(digits)) return digits;
+
+  return null;
+}
+
+type SMSResult =
+  | { sent: true; messageId: number | string }
+  | { sent: false; error: string };
+
 async function sendSMSConfirmation({
   mobile,
   fullName,
@@ -37,11 +51,17 @@ async function sendSMSConfirmation({
   fullName: string;
   date: string;
   reference: string;
-}) {
+}): Promise<SMSResult> {
   const apiKey = process.env.SEMAPHORE_API_KEY;
   if (!apiKey) {
     console.warn("SEMAPHORE_API_KEY is not set. SMS skipped.");
-    return;
+    return { sent: false, error: "SMS service is not configured." };
+  }
+
+  const number = normalizePhilippineMobile(mobile);
+  if (!number) {
+    console.warn("SMS skipped: invalid Philippine mobile number format.");
+    return { sent: false, error: "Invalid Philippine mobile number." };
   }
 
   const displayDate = formatSMSDate(date);
@@ -56,7 +76,7 @@ async function sendSMSConfirmation({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         apikey: apiKey,
-        number: mobile,
+        number,
         message,
         sendername: process.env.SEMAPHORE_SENDER_NAME ?? "MAXSMILE",
       }),
@@ -65,9 +85,32 @@ async function sendSMSConfirmation({
     if (!res.ok) {
       const err = await res.text().catch(() => "unknown");
       console.error("SMS send failed:", res.status, err);
+      return { sent: false, error: "SMS provider rejected the request." };
     }
+
+    const payload: unknown = await res.json().catch(() => null);
+    const sms = Array.isArray(payload) ? payload[0] : null;
+    const status =
+      sms && typeof sms === "object" && "status" in sms
+        ? String(sms.status).toLowerCase()
+        : "";
+    const messageId =
+      sms && typeof sms === "object" && "message_id" in sms
+        ? sms.message_id
+        : null;
+
+    if (
+      messageId === null ||
+      (status && ["failed", "refunded"].includes(status))
+    ) {
+      console.error("SMS provider returned an unsuccessful response:", payload);
+      return { sent: false, error: "SMS provider did not accept the message." };
+    }
+
+    return { sent: true, messageId: String(messageId) };
   } catch (err) {
     console.error("SMS send error:", err);
+    return { sent: false, error: "Could not connect to the SMS provider." };
   }
 }
 
@@ -223,7 +266,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  void sendSMSConfirmation({
+  const sms = await sendSMSConfirmation({
     mobile,
     fullName: full_name,
     date: dateStr,
@@ -234,5 +277,7 @@ export async function POST(req: Request) {
     ok: true,
     reference: data.reference,
     createdAt: data.created_at,
+    smsSent: sms.sent,
+    smsError: sms.sent ? null : sms.error,
   });
 }

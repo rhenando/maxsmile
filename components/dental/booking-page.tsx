@@ -66,6 +66,15 @@ function mapsLink(q: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 
+function localMobileDigits(value: string) {
+  let digits = value.replace(/\D/g, "");
+
+  if (digits.startsWith("63")) digits = digits.slice(2);
+  if (digits.startsWith("0")) digits = digits.slice(1);
+
+  return digits.slice(0, 10);
+}
+
 function todayLocalISO() {
   return toLocalISO(new Date());
 }
@@ -136,6 +145,7 @@ export default function BookingPageClient({
   const [confirmed, setConfirmed] = useState(false);
   const [reference, setReference] = useState<string>("");
   const [reservedOpen, setReservedOpen] = useState(false);
+  const [smsSent, setSmsSent] = useState(false);
 
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [privacyError, setPrivacyError] = useState(false);
@@ -166,6 +176,7 @@ export default function BookingPageClient({
     setMobile("");
     setService(SERVICES[0]?.value);
     setReservedOpen(false);
+    setSmsSent(false);
     setPrivacyAgreed(false);
     setPrivacyError(false);
     setCheckingCapacity(false);
@@ -223,7 +234,7 @@ export default function BookingPageClient({
     !isClosedDate(date) &&
     !isFull &&
     fullName.trim().length >= 2 &&
-    mobile.trim().length >= 8 &&
+    /^9\d{9}$/.test(mobile) &&
     privacyAgreed &&
     !submitting &&
     !checkingCapacity;
@@ -272,7 +283,7 @@ export default function BookingPageClient({
           service,
           date,
           fullName,
-          mobile,
+          mobile: `+63${mobile}`,
           privacyAgreed: true,
           website: "",
         }),
@@ -289,6 +300,7 @@ export default function BookingPageClient({
       if (!res.ok) throw new Error(json?.error || "Failed to submit booking.");
 
       setReference(json.reference);
+      setSmsSent(json.smsSent === true);
       setConfirmed(true);
       setReservedOpen(true);
     } catch (err: unknown) {
@@ -493,14 +505,24 @@ export default function BookingPageClient({
 
                       <div className='space-y-2'>
                         <Label htmlFor='mobile'>Mobile Number</Label>
-                        <Input
-                          id='mobile'
-                          value={mobile}
-                          onChange={(e) => setMobile(e.target.value)}
-                          placeholder='09xx xxx xxxx'
-                          inputMode='tel'
-                          className='h-11 rounded-xl'
-                        />
+                        <div className='flex h-11 overflow-hidden rounded-xl border border-input bg-transparent shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50'>
+                          <span className='flex items-center border-r border-input bg-black/[0.03] px-3 text-sm text-black/70'>
+                            +63
+                          </span>
+                          <Input
+                            id='mobile'
+                            value={mobile}
+                            onChange={(e) => setMobile(localMobileDigits(e.target.value))}
+                            placeholder='9171234567'
+                            inputMode='numeric'
+                            autoComplete='tel-national'
+                            maxLength={10}
+                            className='h-full rounded-none border-0 shadow-none focus-visible:ring-0'
+                          />
+                        </div>
+                        <p className='text-xs text-black/55'>
+                          Enter the 10 digits after +63. Example: +63 917 123 4567
+                        </p>
                       </div>
                     </div>
 
@@ -699,10 +721,14 @@ export default function BookingPageClient({
             <DialogHeader>
               <DialogTitle className='tracking-tight'>Reservation Confirmed</DialogTitle>
               <DialogDescription className='text-black/70'>
-                Your slot has been reserved. SMS sent with your reservation details.
-                <span className='block mt-1 text-xs text-black/55'>
-                  If you don&apos;t receive the SMS, please double-check your number or call the clinic.
-                </span>
+                {smsSent
+                  ? "Your slot has been reserved. SMS sent with your reservation details."
+                  : "Your slot has been reserved, but we could not send the confirmation SMS."}
+                {!smsSent ? (
+                  <span className='block mt-1 text-xs text-black/55'>
+                    Please save your reference number and call the clinic if you need assistance.
+                  </span>
+                ) : null}
               </DialogDescription>
             </DialogHeader>
 
